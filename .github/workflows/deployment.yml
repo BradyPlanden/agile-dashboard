@@ -48,7 +48,7 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Build with trunk
-      run: trunk build --release --public-url /${{ github.event.repository.name }}/
+      run: trunk build --release
 
     - name: Setup Pages
       uses: actions/configure-pages@v4
