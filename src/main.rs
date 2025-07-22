@@ -395,46 +395,33 @@ fn calculate_price_stats(
         .map_err(|_| AppError::ColumnNotFound(column_name.to_string()))?;
 
     let current = current_price(df)?;
+    let error_msg = |stat: &str| {
+        AppError::DataFrameError(format!("Cannot calculate {stat} for column {column_name}"))
+    };
 
     let avg = s
         .mean_reduce()
         .into_value()
-        .try_extract::<f64>()
-        .map_err(|_| {
-            AppError::DataFrameError(format!(
-                "Cannot calculate mean value for column {column_name}",
-            ))
-        })?;
+        .try_extract()
+        .map_err(|_| error_msg("mean"))?;
     let median = s
         .median_reduce()
         .unwrap()
         .into_value()
-        .try_extract::<f64>()
-        .map_err(|_| {
-            AppError::DataFrameError(format!(
-                "Cannot calculate median value for column {column_name}",
-            ))
-        })?;
+        .try_extract()
+        .map_err(|_| error_msg("median"))?;
     let min = s
         .min_reduce()
         .unwrap()
         .into_value()
-        .try_extract::<f64>()
-        .map_err(|_| {
-            AppError::DataFrameError(format!(
-                "Cannot calculate min value for column {column_name}",
-            ))
-        })?;
+        .try_extract()
+        .map_err(|_| error_msg("min"))?;
     let max = s
         .max_reduce()
         .unwrap()
         .into_value()
-        .try_extract::<f64>()
-        .map_err(|_| {
-            AppError::DataFrameError(format!(
-                "Cannot calculate max value for column {column_name}"
-            ))
-        })?;
+        .try_extract()
+        .map_err(|_| error_msg("max"))?;
 
     Ok((min, max, median, avg, current))
 }
