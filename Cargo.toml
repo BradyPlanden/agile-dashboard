@@ -11,7 +11,7 @@ yew = { version = "0.21.0", features = ["csr"] }
 wasm-bindgen-futures = "0.4.50"
 web-sys = "0.3.77"
 yew-plotly = "0.3.0"
-polars-core = { version = "0.49.1", features = ["strings","temporal", "dtype-datetime", "dtype-date"] }
-polars-lazy = { version = "0.49.1", features = ["strings", "json", "temporal", "dtype-datetime", "dtype-date"] }
+polars-core = { version = "0.49.1", features = ["timezones", "strings","temporal", "dtype-datetime", "dtype-date"] }
+polars-lazy = { version = "0.49.1", features = ["timezones","strings", "json", "temporal", "dtype-datetime", "dtype-date"] }
 polars-io = { version = "0.49.1", features = ["json", "temporal", "dtype-datetime", "dtype-date"] }
 chrono = "0.4.41"

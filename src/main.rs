@@ -1,5 +1,6 @@
 use chrono::Utc;
 use polars_core::prelude::*;
+use polars_lazy::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::console;
 use yew::prelude::*;
@@ -125,13 +126,18 @@ async fn load_data() -> Result<DataFrame, AppError> {
 fn current_price(df: &DataFrame) -> Result<f64, AppError> {
     let current_time = Utc::now().timestamp_millis();
 
-    // Build the mask
-    let mask = df.column("valid_from")?.i64()?.lt_eq(current_time)
-        & df.column("valid_to")?.i64()?.gt(current_time);
+    let result = df
+        .clone()
+        .lazy()
+        .filter(
+            col("valid_from")
+                .lt_eq(lit(current_time))
+                .and(col("valid_to").gt(lit(current_time))),
+        )
+        .select([col("value_inc_vat")])
+        .collect()?;
 
-    // Filter the dataframe, compute price
-    let current_cost_row = df.filter(&mask)?;
-    let price_column = current_cost_row.column("value_inc_vat")?.f64()?;
+    let price_column = result.column("value_inc_vat")?.f64()?;
     let price = match price_column.get(0) {
         Some(p) => p,
         None => {
@@ -180,7 +186,7 @@ fn extract_datetime_strings(column: &Column) -> Result<Vec<String>, AppError> {
                     .get(i)
                     .map(|dt| {
                         // Convert to chrono DateTime and format
-                        let datetime = chrono::DateTime::from_timestamp_millis(dt / 1_000_000)
+                        let datetime = chrono::DateTime::from_timestamp_millis(dt)
                             .unwrap_or_else(chrono::Utc::now);
                         datetime.format("%Y-%m-%d %H:%M").to_string()
                     })
@@ -228,9 +234,7 @@ fn extract_datetime_strings(column: &Column) -> Result<Vec<String>, AppError> {
 
 // Create Plotly chart from dataframe
 fn create_plotly_chart(df: &DataFrame) -> Result<Plot, AppError> {
-    let number_of_slots = 48;
-    let plot_data = extract_plot_data(&df.head(Some(number_of_slots)))?;
-
+    let plot_data = extract_plot_data(df)?;
     // Bar chart
     let trace = Bar::new(plot_data.x_data, plot_data.y_data).name("Energy Prices");
 
@@ -363,7 +367,7 @@ struct DataSummary {
 // Generate data summary from DataFrame
 fn generate_data_summary(df: &DataFrame) -> DataSummary {
     let (price_range, median_price, avg_price, current_price) =
-        match calculate_price_stats(df, "value_exc_vat") {
+        match calculate_price_stats(df, "value_inc_vat") {
             Ok((min, max, median, avg, current)) => {
                 (format!("{min:.2}p - {max:.2}p"), median, avg, current)
             }
@@ -454,11 +458,17 @@ fn extract_plot_data(df: &DataFrame) -> Result<PlotData, AppError> {
             )));
         }
     }
+    let current_date = Utc::now().date_naive();
+    let df_day = df
+        .clone()
+        .lazy()
+        .filter(col("valid_from").dt().date().gt_eq(lit(current_date)))
+        .collect()?;
 
-    let valid_to_column = df
+    let valid_to_column = df_day
         .column("valid_to")
         .map_err(|e| AppError::DataFrameError(e.to_string()))?;
-    let value_inc_vat_column = df
+    let value_inc_vat_column = df_day
         .column("value_inc_vat")
         .map_err(|e| AppError::DataFrameError(e.to_string()))?;
 
