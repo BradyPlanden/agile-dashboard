@@ -1,4 +1,6 @@
-use polars::prelude::*;
+use polars_core::prelude::*;
+use polars_io::prelude::*;
+use polars_lazy::prelude::*;
 use std::num::NonZeroUsize;
 
 pub struct ApiConfig {
@@ -32,11 +34,32 @@ pub fn construct_dataframe(
     field: &str,
 ) -> Result<DataFrame, PolarsError> {
     let json_str = serde_json::to_string(&json[field]).expect("Failed to serialize JSON value");
-
     let df = JsonReader::new(std::io::Cursor::new(json_str.as_bytes()))
         .infer_schema_len(Some(NonZeroUsize::new(100).unwrap())) // Optional: limit rows for schema inference
         .finish()
         .expect("Failed to parse JSON");
 
-    Ok(df)
+    let df_datetime = df
+        .lazy()
+        .with_columns([
+            col("valid_from")
+                .str()
+                .strptime(
+                    DataType::Datetime(TimeUnit::Milliseconds, None),
+                    StrptimeOptions::default(),
+                    lit("iso"),
+                )
+                .alias("valid_from"),
+            col("valid_to")
+                .str()
+                .strptime(
+                    DataType::Datetime(TimeUnit::Milliseconds, None),
+                    StrptimeOptions::default(),
+                    lit("iso"),
+                )
+                .alias("valid_to"),
+        ])
+        .collect()?;
+
+    Ok(df_datetime)
 }
