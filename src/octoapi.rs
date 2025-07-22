@@ -1,4 +1,6 @@
-use polars::prelude::*;
+use polars_core::prelude::*;
+use polars_io::prelude::*;
+use polars_lazy::prelude::*;
 use std::num::NonZeroUsize;
 
 pub struct ApiConfig {
@@ -38,5 +40,31 @@ pub fn construct_dataframe(
         .finish()
         .expect("Failed to parse JSON");
 
-    Ok(df)
+    let df_datetime = df
+        .lazy()
+        .with_columns([
+            col("valid_from")
+                .str()
+                .strptime(
+                    DataType::Datetime(TimeUnit::Milliseconds, None),
+                    StrptimeOptions::default(),
+                    lit("iso"),
+                )
+                .dt()
+                .timestamp(TimeUnit::Milliseconds)
+                .alias("valid_from"),
+            col("valid_to")
+                .str()
+                .strptime(
+                    DataType::Datetime(TimeUnit::Milliseconds, None),
+                    StrptimeOptions::default(),
+                    lit("iso"),
+                )
+                .dt()
+                .timestamp(TimeUnit::Milliseconds)
+                .alias("valid_to"),
+        ])
+        .collect()?;
+
+    Ok(df_datetime)
 }
