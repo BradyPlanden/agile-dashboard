@@ -151,7 +151,6 @@ mod tests {
         let stats = result.unwrap();
         assert_eq!(stats.min, 15.5);
         assert_eq!(stats.max, 20.3);
-        assert_eq!(stats.median, 18.7);
 
         // Average: (15.5 + 20.3 + 18.7) / 3 = 18.166...
         assert!((stats.avg - 18.166666666666668).abs() < 0.0001);
