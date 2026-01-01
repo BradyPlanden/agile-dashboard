@@ -6,6 +6,7 @@ mod tests {
         rates::{Rate, Rates},
     };
     use chrono::{Duration, TimeZone, Utc};
+    use std::rc::Rc;
 
     // Helper function to create test rates
     fn create_test_rates() -> Vec<Rate> {
@@ -286,7 +287,7 @@ mod tests {
         let loading = DataState::Loading;
         assert!(loading.is_loading());
 
-        let loaded = DataState::Loaded(Rates::new(vec![]));
+        let loaded = DataState::Loaded(Rc::new(Rates::new(vec![])));
         assert!(!loaded.is_loading());
 
         let error = DataState::Error("Test error".to_string());
@@ -295,7 +296,7 @@ mod tests {
 
     #[test]
     fn test_data_state_data_extraction() {
-        let rates = Rates::new(create_test_rates());
+        let rates = Rc::new(Rates::new(create_test_rates()));
         let loaded = DataState::Loaded(rates.clone());
 
         assert!(loaded.data().is_some());
@@ -318,8 +319,8 @@ mod tests {
         let state4 = DataState::Error("Test error".to_string());
         assert_eq!(state3, state4);
 
-        let rates1 = Rates::new(create_test_rates());
-        let rates2 = Rates::new(create_test_rates());
+        let rates1 = Rc::new(Rates::new(create_test_rates()));
+        let rates2 = Rc::new(Rates::new(create_test_rates()));
         let state5 = DataState::Loaded(rates1);
         let state6 = DataState::Loaded(rates2);
         assert_eq!(state5, state6);
