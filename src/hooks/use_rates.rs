@@ -1,5 +1,5 @@
-use yew::prelude::*;
 use std::rc::Rc;
+use yew::prelude::*;
 
 use crate::models::rates::Rates;
 use crate::services::api::fetch_rates;

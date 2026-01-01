@@ -84,12 +84,18 @@ impl Rates {
             return Err(AppError::DataError("No data available".to_string()));
         }
 
-        let values: Vec<f64> = self.data.iter().map(|r| r.value_inc_vat).collect();
+        let mut min = f64::INFINITY;
+        let mut max = f64::NEG_INFINITY;
+        let mut sum = 0.0;
 
-        let min = values.iter().copied().fold(f64::INFINITY, f64::min);
-        let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        let avg = values.iter().sum::<f64>() / values.len() as f64;
+        for rate in &self.data {
+            let val = rate.value_inc_vat;
+            min = min.min(val);
+            max = max.max(val);
+            sum += val;
+        }
 
+        let avg = sum / self.data.len() as f64;
         let current = self.rate_at(time).map(|r| r.value_inc_vat).unwrap_or(0.0);
         let next = self.next_rate(time).map(|r| r.value_inc_vat).unwrap_or(0.0);
 
@@ -117,19 +123,23 @@ impl Rates {
     }
 
     pub fn series_data(&self) -> Result<(Vec<String>, Vec<f64>), AppError> {
-        let rates_today = self.filter_for_today();
+        let start_of_today = Utc::now().date_naive();
 
-        if rates_today.is_empty() {
+        let (x_data, y_data): (Vec<_>, Vec<_>) = self
+            .data
+            .iter()
+            .filter(|r| r.valid_from.date_naive() >= start_of_today)
+            .map(|r| {
+                (
+                    r.valid_from.format("%Y-%m-%d %H:%M").to_string(),
+                    r.value_inc_vat,
+                )
+            })
+            .unzip();
+
+        if x_data.is_empty() {
             return Err(AppError::DataError("No rates for today".to_string()));
         }
-
-        // Already sorted from construction
-        let x_data: Vec<String> = rates_today
-            .iter()
-            .map(|r| r.valid_from.format("%Y-%m-%d %H:%M").to_string())
-            .collect();
-
-        let y_data: Vec<f64> = rates_today.iter().map(|r| r.value_inc_vat).collect();
 
         Ok((x_data, y_data))
     }
