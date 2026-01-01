@@ -1,11 +1,12 @@
 use crate::models::rates::Rates;
+use std::rc::Rc;
 use yew::prelude::*;
 use yew_plotly::Plotly;
 use yew_plotly::plotly::{Bar, Layout, Plot};
 
 #[derive(Properties, PartialEq)]
 pub struct ChartProps {
-    pub rates: Rates,
+    pub rates: Rc<Rates>,
 }
 
 #[function_component(Chart)]

@@ -1,9 +1,10 @@
 use crate::models::rates::Rates;
+use std::rc::Rc;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct SummaryProps {
-    pub rates: Rates,
+    pub rates: Rc<Rates>,
 }
 
 #[function_component(Summary)]
