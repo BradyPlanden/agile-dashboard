@@ -1,6 +1,6 @@
 [package]
 name = "agile-dashboard"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 
 [lib]
@@ -8,15 +8,15 @@ name = "agile_dashboard"
 path = "src/lib.rs"
 
 [dependencies]
-getrandom = { version = "0.3.3", features = ["wasm_js"] }
-reqwest = { version = "0.12.22", features = ["json"] }
+reqwest = { version = "0.13.1", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
-yew = { version = "0.21.0", features = ["csr"] } # Yew 0.22.0 is not compatible with yew-plotly 0.3.0
+yew = { version = "0.22.0", features = ["csr"] }
 wasm-bindgen-futures = "0.4.50"
 web-sys = "0.3.77"
-yew-plotly = "0.3.0"
 chrono = { version = "0.4.41", features = ["serde"] }
+charming = { version = "0.6.0", features = ["wasm"] }
+gloo = "0.11.0"
 
 [profile.release]
 opt-level = "z"

@@ -1,9 +1,10 @@
 use crate::models::rates::Rates;
+use std::rc::Rc;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct SummaryProps {
-    pub rates: Rates,
+    pub rates: Rc<Rates>,
 }
 
 #[function_component(Summary)]
@@ -27,8 +28,8 @@ pub fn summary(props: &SummaryProps) -> Html {
                         <p class="summary-value">{format!("{:.2}p", summary.current)}</p>
                     </div>
                     <div class="summary-item">
-                        <h3>{"Median Price"}</h3>
-                        <p class="summary-value">{format!("{:.2}p", summary.median)}</p>
+                        <h3>{"Next Price"}</h3>
+                        <p class="summary-value">{format!("{:.2}p", summary.next)}</p>
                     </div>
                 </div>
             </div>

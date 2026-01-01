@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use yew::prelude::*;
 
 use crate::models::rates::Rates;
@@ -7,7 +8,7 @@ use wasm_bindgen_futures::spawn_local;
 #[derive(Clone, PartialEq, Debug)]
 pub enum DataState {
     Loading,
-    Loaded(Rates),
+    Loaded(Rc<Rates>),
     Error(String),
 }
 
@@ -18,7 +19,7 @@ impl DataState {
     }
 
     /// Returns the data if it is loaded
-    pub fn data(&self) -> Option<&Rates> {
+    pub fn data(&self) -> Option<&Rc<Rates>> {
         match self {
             DataState::Loaded(rates) => Some(rates),
             _ => None,
@@ -35,7 +36,7 @@ pub fn use_rates() -> UseStateHandle<DataState> {
         use_effect(move || {
             spawn_local(async move {
                 match fetch_rates().await {
-                    Ok(rates) => state.set(DataState::Loaded(rates)),
+                    Ok(rates) => state.set(DataState::Loaded(Rc::new(rates))),
                     Err(e) => state.set(DataState::Error(e.to_string())),
                 }
             });

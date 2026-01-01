@@ -18,85 +18,195 @@ pub struct Rates {
 pub struct PriceStats {
     pub min: f64,
     pub max: f64,
-    pub median: f64,
     pub avg: f64,
     pub current: f64,
+    pub next: f64,
     pub price_range: String,
 }
 
 impl Rates {
-    pub fn new(data: Vec<Rate>) -> Self {
+    /// Creates a new Rates collection, sorting by valid_from time
+    pub fn new(mut data: Vec<Rate>) -> Self {
+        data.sort_by_key(|r| r.valid_from);
         Self { data }
     }
 
-    pub fn current_price(&self) -> Result<f64, AppError> {
-        let current_time = Utc::now();
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
 
-        self.data
-            .iter()
-            .find(|r| r.valid_from <= current_time && r.valid_to > current_time)
-            .map(|r| r.value_inc_vat)
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Find the rate valid at a specific time using binary search
+    /// Returns None if no rate covers the given time (gap or out of range)
+    pub fn rate_at(&self, time: DateTime<Utc>) -> Option<&Rate> {
+        // Find first index where valid_from > time
+        let idx = self.data.partition_point(|r| r.valid_from <= time);
+
+        // Step back to get the candidate rate
+        let rate = self.data.get(idx.checked_sub(1)?)?;
+
+        // Verify the rate actually covers this time (handles gaps)
+        (rate.valid_to > time).then_some(rate)
+    }
+
+    /// Find the rate immediately following the one valid at the given time
+    pub fn next_rate(&self, time: DateTime<Utc>) -> Option<&Rate> {
+        let current = self.rate_at(time)?;
+        self.rate_at(current.valid_to)
+    }
+
+    // Public API using current system time
+    pub fn current_rate(&self) -> Result<&Rate, AppError> {
+        self.rate_at(Utc::now())
             .ok_or_else(|| AppError::DataError("No current rate found".to_string()))
     }
 
+    pub fn current_price(&self) -> Result<f64, AppError> {
+        self.current_rate().map(|r| r.value_inc_vat)
+    }
+
+    pub fn next_price(&self) -> Result<f64, AppError> {
+        self.next_rate(Utc::now())
+            .map(|r| r.value_inc_vat)
+            .ok_or_else(|| AppError::DataError("No next rate found".to_string()))
+    }
+
     pub fn stats(&self) -> Result<PriceStats, AppError> {
+        self.stats_at(Utc::now())
+    }
+
+    // Core functionality
+    pub fn stats_at(&self, time: DateTime<Utc>) -> Result<PriceStats, AppError> {
         if self.data.is_empty() {
             return Err(AppError::DataError("No data available".to_string()));
         }
 
-        let values: Vec<f64> = self.data.iter().map(|r| r.value_inc_vat).collect();
+        let mut min = f64::INFINITY;
+        let mut max = f64::NEG_INFINITY;
+        let mut sum = 0.0;
 
-        let min = values.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let max = values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        let sum: f64 = values.iter().sum();
-        let avg = sum / values.len() as f64;
+        for rate in &self.data {
+            let val = rate.value_inc_vat;
+            min = min.min(val);
+            max = max.max(val);
+            sum += val;
+        }
 
-        let mut sorted_values = values.clone();
-        sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let mid = sorted_values.len() / 2;
-        let median = if sorted_values.len() % 2 == 0 {
-            (sorted_values[mid - 1] + sorted_values[mid]) / 2.0
-        } else {
-            sorted_values[mid]
-        };
-
-        // Use 0.0 if current price is not available, rather than failing the whole stats
-        let current = self.current_price().unwrap_or(0.0);
+        let avg = sum / self.data.len() as f64;
+        let current = self.rate_at(time).map(|r| r.value_inc_vat).unwrap_or(0.0);
+        let next = self.next_rate(time).map(|r| r.value_inc_vat).unwrap_or(0.0);
 
         Ok(PriceStats {
             min,
             max,
-            median,
             avg,
             current,
+            next,
             price_range: format!("{min:.2}p - {max:.2}p"),
         })
     }
 
-    // Filter for today's rates (from midnight today to midnight tomorrow)
+    pub fn filter_from(&self, from: DateTime<Utc>) -> impl Iterator<Item = &Rate> {
+        self.data.iter().filter(move |r| r.valid_from >= from)
+    }
+
     pub fn filter_for_today(&self) -> Vec<Rate> {
-        let current_date = Utc::now().date_naive();
+        let start_of_today = Utc::now().date_naive();
         self.data
             .iter()
-            .filter(|r| r.valid_from.date_naive() >= current_date)
+            .filter(|r| r.valid_from.date_naive() >= start_of_today)
             .cloned()
             .collect()
     }
 
     pub fn series_data(&self) -> Result<(Vec<String>, Vec<f64>), AppError> {
-        let rates_today = self.filter_for_today();
+        let start_of_today = Utc::now().date_naive();
 
-        // Sort by time just in case
-        let mut sorted_rates = rates_today.clone();
-        sorted_rates.sort_by(|a, b| a.valid_from.cmp(&b.valid_from));
-
-        let x_data: Vec<String> = sorted_rates
+        let (x_data, y_data): (Vec<_>, Vec<_>) = self
+            .data
             .iter()
-            .map(|r| r.valid_from.format("%Y-%m-%d %H:%M").to_string())
-            .collect();
+            .filter(|r| r.valid_from.date_naive() >= start_of_today)
+            .map(|r| {
+                (
+                    r.valid_from.format("%a %H:%M").to_string(),
+                    r.value_inc_vat,
+                )
+            })
+            .unzip();
 
-        let y_data: Vec<f64> = sorted_rates.iter().map(|r| r.value_inc_vat).collect();
+        if x_data.is_empty() {
+            return Err(AppError::DataError("No rates for today".to_string()));
+        }
 
         Ok((x_data, y_data))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    fn make_rate(hour: u32, value: f64) -> Rate {
+        let valid_from = Utc.with_ymd_and_hms(2024, 1, 15, hour, 0, 0).unwrap();
+        let valid_to = Utc.with_ymd_and_hms(2024, 1, 15, hour, 30, 0).unwrap();
+        Rate {
+            value_inc_vat: value,
+            valid_from,
+            valid_to,
+        }
+    }
+
+    #[test]
+    fn test_rate_at_finds_correct_rate() {
+        let rates = Rates::new(vec![
+            make_rate(10, 15.0),
+            make_rate(11, 20.0),
+            make_rate(12, 25.0),
+        ]);
+
+        let time = Utc.with_ymd_and_hms(2024, 1, 15, 11, 15, 0).unwrap();
+        let rate = rates.rate_at(time).unwrap();
+
+        assert_eq!(rate.value_inc_vat, 20.0);
+    }
+
+    #[test]
+    fn test_next_rate_finds_following_slot() {
+        // Create contiguous rates for this test
+        let valid_from_1 = Utc.with_ymd_and_hms(2024, 1, 15, 10, 0, 0).unwrap();
+        let valid_to_1 = Utc.with_ymd_and_hms(2024, 1, 15, 10, 30, 0).unwrap();
+        let valid_from_2 = valid_to_1;
+        let valid_to_2 = Utc.with_ymd_and_hms(2024, 1, 15, 11, 0, 0).unwrap();
+
+        let rates = Rates::new(vec![
+            Rate {
+                value_inc_vat: 15.0,
+                valid_from: valid_from_1,
+                valid_to: valid_to_1,
+            },
+            Rate {
+                value_inc_vat: 20.0,
+                valid_from: valid_from_2,
+                valid_to: valid_to_2,
+            },
+        ]);
+
+        let time = Utc.with_ymd_and_hms(2024, 1, 15, 10, 15, 0).unwrap();
+        let next = rates.next_rate(time).unwrap();
+
+        assert_eq!(next.value_inc_vat, 20.0);
+    }
+
+    #[test]
+    fn test_rate_at_returns_none_for_gap() {
+        let rates = Rates::new(vec![make_rate(10, 15.0)]);
+
+        // Time after the only rate ends
+        let time = Utc.with_ymd_and_hms(2024, 1, 15, 10, 45, 0).unwrap();
+        assert!(rates.rate_at(time).is_none());
     }
 }

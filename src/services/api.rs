@@ -19,6 +19,12 @@ impl ApiConfig {
     }
 }
 
+impl Default for ApiConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Deserialize)]
 struct ApiResponse {
     results: Vec<Rate>,
