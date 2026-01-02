@@ -129,12 +129,7 @@ impl Rates {
             .data
             .iter()
             .filter(|r| r.valid_from.date_naive() >= start_of_today)
-            .map(|r| {
-                (
-                    r.valid_from.format("%a %H:%M").to_string(),
-                    r.value_inc_vat,
-                )
-            })
+            .map(|r| (r.valid_from.format("%a %H:%M").to_string(), r.value_inc_vat))
             .unzip();
 
         if x_data.is_empty() {

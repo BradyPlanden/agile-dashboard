@@ -85,9 +85,12 @@ fn build_chart(rates: &Rates) -> Result<CharmingChart, crate::models::error::App
                 .axis_pointer(AxisPointer::new().type_(AxisPointerType::Shadow)),
         )
         .visual_map(VisualMap::new().show(false).pieces(vec![
-            VisualMapPiece::new().lt(15).color("#10b981"),
-            VisualMapPiece::new().gte(15).lt(25).color("#f59e0b"),
-            VisualMapPiece::new().gte(25).color("#ef4444"),
+            VisualMapPiece::new().lt(7.5).color("#00b4a0"), // blue
+            VisualMapPiece::new().gte(7.5).lt(11.25).color("#648fff"), // teal
+            VisualMapPiece::new().gte(11.25).lt(15.0).color("#785ef0"), // purple
+            VisualMapPiece::new().gte(15.0).lt(22.5).color("#dc267f"), // magenta
+            VisualMapPiece::new().gte(22.5).lt(30.0).color("#fe6100"), // orange
+            VisualMapPiece::new().gte(30.0).color("#ffb000"), // yellow
         ]))
         .grid(
             Grid::new()
