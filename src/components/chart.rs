@@ -25,23 +25,27 @@ pub struct ChartProps {
 #[function_component(Chart)]
 pub fn chart(props: &ChartProps) -> Html {
     let container_ref = use_node_ref();
+    let series_data = use_memo(props.rates.clone(), |rates| rates.series_data());
 
     {
-        let rates = props.rates.clone();
+        let series_data = series_data.clone();
         let container_ref = container_ref.clone();
 
-        use_effect_with((rates, container_ref), |(rates, container_ref)| {
-            let listener = container_ref.cast::<HtmlElement>().map(|container| {
-                render_chart(&container, rates);
+        use_effect_with(
+            (series_data, container_ref),
+            |(series_data, container_ref)| {
+                let listener = container_ref.cast::<HtmlElement>().map(|container| {
+                    render_chart(&container, series_data);
 
-                let rates = rates.clone();
-                EventListener::new(&web_sys::window().unwrap(), "resize", move |_| {
-                    render_chart(&container, &rates);
-                })
-            });
+                    let series_data = series_data.clone();
+                    EventListener::new(&web_sys::window().unwrap(), "resize", move |_| {
+                        render_chart(&container, &series_data);
+                    })
+                });
 
-            move || drop(listener)
-        });
+                move || drop(listener)
+            },
+        );
     }
 
     html! {
@@ -51,7 +55,10 @@ pub fn chart(props: &ChartProps) -> Html {
     }
 }
 
-fn render_chart(container: &HtmlElement, rates: &Rates) {
+fn render_chart(
+    container: &HtmlElement,
+    series_data: &Result<(Vec<String>, Vec<f64>), crate::models::error::AppError>,
+) {
     let width = container.client_width() as u32;
     let height = container.client_height() as u32;
 
@@ -59,18 +66,23 @@ fn render_chart(container: &HtmlElement, rates: &Rates) {
         return;
     }
 
-    match build_chart(rates) {
-        Ok(chart) => {
-            if let Err(e) = WasmRenderer::new(width, height).render(CHART_ID, &chart) {
-                web_sys::console::error_1(&format!("Render error: {e:?}").into());
+    match series_data {
+        Ok(data) => match build_chart(data) {
+            Ok(chart) => {
+                if let Err(e) = WasmRenderer::new(width, height).render(CHART_ID, &chart) {
+                    web_sys::console::error_1(&format!("Render error: {e:?}").into());
+                }
             }
-        }
-        Err(e) => web_sys::console::error_1(&format!("Chart error: {e}").into()),
+            Err(e) => web_sys::console::error_1(&format!("Chart error: {e}").into()),
+        },
+        Err(e) => web_sys::console::error_1(&format!("Series data error: {e}").into()),
     }
 }
 
-fn build_chart(rates: &Rates) -> Result<CharmingChart, crate::models::error::AppError> {
-    let (x_data, y_data) = rates.series_data()?;
+fn build_chart(
+    series_data: &(Vec<String>, Vec<f64>),
+) -> Result<CharmingChart, crate::models::error::AppError> {
+    let (x_data, y_data) = series_data;
 
     Ok(CharmingChart::new()
         .title(
@@ -102,7 +114,7 @@ fn build_chart(rates: &Rates) -> Result<CharmingChart, crate::models::error::App
         .x_axis(
             Axis::new()
                 .type_(AxisType::Category)
-                .data(x_data)
+                .data(x_data.clone())
                 .axis_label(AxisLabel::new().rotate(45).color("#6b7280").interval(5)),
         )
         .y_axis(
@@ -118,5 +130,5 @@ fn build_chart(rates: &Rates) -> Result<CharmingChart, crate::models::error::App
                     ),
                 ),
         )
-        .series(Bar::new().data(y_data).bar_width("70%")))
+        .series(Bar::new().data(y_data.clone()).bar_width("70%")))
 }

@@ -9,9 +9,9 @@ pub struct SummaryProps {
 
 #[function_component(Summary)]
 pub fn summary(props: &SummaryProps) -> Html {
-    let stats_result = props.rates.stats();
+    let stats_result = use_memo(props.rates.clone(), |rates| rates.stats());
 
-    match stats_result {
+    match &*stats_result {
         Ok(summary) => html! {
              <div class="data-summary">
                 <div class="summary-grid">
