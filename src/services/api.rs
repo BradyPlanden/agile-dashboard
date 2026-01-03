@@ -159,8 +159,15 @@ impl ApiConfig {
     }
 
     /// Constructs the full URL for Agile tariff rates.
-    pub fn agile_url(&self) -> String {
-        self.build_tariff_url(&self.agile_product)
+    pub fn agile_url(&self, now: DateTime<Utc>) -> String {
+        let base = self.build_tariff_url(&self.agile_product);
+        let (from, to) = Self::calculate_period(now);
+        format!(
+            "{}?period_from={}&period_to={}",
+            base,
+            from.format("%Y-%m-%dT%H:%M:%SZ"),
+            to.format("%Y-%m-%dT%H:%M:%SZ")
+        )
     }
 
     /// Constructs the full URL for Tracker tariff rates with date period.
@@ -301,7 +308,7 @@ impl OctopusClient {
 
     /// Fetches Agile tariff rates.
     pub async fn fetch_agile_rates(&self) -> Result<Rates, AppError> {
-        let url = self.config.agile_url();
+        let url = self.config.agile_url(Utc::now());
 
         let rates = self.fetch(&url).await?;
         Ok(Rates::new(rates))
@@ -430,14 +437,14 @@ mod tests {
     fn test_config_builder_custom_region() {
         let config = ApiConfig::builder().region(Region::M).build();
         assert_eq!(config.region, Region::M);
-        assert!(config.agile_url().contains("-M/"));
+        assert!(config.agile_url(Utc::now()).contains("-M/"));
     }
 
     #[test]
     fn test_agile_url_construction() {
         let config = ApiConfig::builder().region(Region::M).build();
 
-        let url = config.agile_url();
+        let url = config.agile_url(Utc::now());
         assert!(url.contains("AGILE-24-10-01"));
         assert!(url.contains("-M/"));
     }
