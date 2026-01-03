@@ -9,9 +9,11 @@ dependencies = [
  "charming",
  "chrono",
  "gloo",
+ "gloo-timers",
  "reqwest",
  "serde",
  "serde_json",
+ "thiserror 2.0.17",
  "wasm-bindgen-futures",
  "web-sys",
  "yew",
@@ -681,6 +683,8 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
 dependencies = [
+ "futures-channel",
+ "futures-core",
  "js-sys",
  "wasm-bindgen",
 ]

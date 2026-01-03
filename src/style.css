@@ -116,6 +116,57 @@
     color: #2c3e50;
 }
 
+.tracker-section {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+.tracker-display {
+    margin-top: 10px;
+}
+
+.tracker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.tracker-item {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.tracker-item h3 {
+    margin: 0 0 10px 0;
+    color: #495057;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.tracker-value {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.price-increase {
+    color: #dc3545;
+    font-size: 1.1rem;
+}
+
+.price-decrease {
+    color: #28a745;
+    font-size: 1.1rem;
+}
+
 @media (max-width: 768px) {
     .app-container {
         padding: 10px;

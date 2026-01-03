@@ -8,11 +8,14 @@ mod services;
 use components::chart::Chart;
 use components::status::Status;
 use components::summary::Summary;
+use components::tracker_display::TrackerDisplay;
 use hooks::use_rates::use_rates;
+use hooks::use_tracker::use_tracker_rates;
 
 #[function_component(App)]
 fn app() -> Html {
     let state = use_rates();
+    let tracker_state = use_tracker_rates();
 
     html! {
         <div class="app-container">
@@ -31,6 +34,29 @@ fn app() -> Html {
                         <h2>{"Data Summary"}</h2>
                         <Summary rates={rates.clone()} />
                     </section>
+
+                    {
+                        match &*tracker_state {
+                            hooks::use_tracker::TrackerDataState::Loading => html! {
+                                <section class="tracker-section">
+                                    <h2>{"Tracker Electricity"}</h2>
+                                    <p>{"Loading tracker data..."}</p>
+                                </section>
+                            },
+                            hooks::use_tracker::TrackerDataState::Loaded(tracker_rates) => html! {
+                                <section class="tracker-section">
+                                    <h2>{"Tracker Electricity"}</h2>
+                                    <TrackerDisplay rates={tracker_rates.clone()} />
+                                </section>
+                            },
+                            hooks::use_tracker::TrackerDataState::Error(err) => html! {
+                                <section class="tracker-section">
+                                    <h2>{"Tracker Electricity"}</h2>
+                                    <p class="error">{format!("Error loading tracker data: {}", err)}</p>
+                                </section>
+                            },
+                        }
+                    }
 
                     <section class="chart-section">
                         <h2>{"Energy Price Distribution"}</h2>

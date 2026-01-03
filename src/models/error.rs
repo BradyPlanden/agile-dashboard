@@ -1,18 +1,20 @@
-use std::fmt;
-
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum AppError {
+    #[error("API error: {0}")]
     ApiError(String),
+
+    #[error("Data error: {0}")]
     DataError(String),
-}
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AppError::ApiError(msg) => write!(f, "API Error: {msg}"),
-            AppError::DataError(msg) => write!(f, "Data Error: {msg}"),
-        }
-    }
-}
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
 
-impl std::error::Error for AppError {}
+    #[error("Rate limited")]
+    RateLimited,
+
+    #[error("Authentication error: {0}")]
+    AuthError(String),
+
+    #[error("Not found: {0}")]
+    NotFound(String),
+}

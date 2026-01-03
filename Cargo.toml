@@ -17,6 +17,8 @@ web-sys = "0.3.77"
 chrono = { version = "0.4.41", features = ["serde"] }
 charming = { version = "0.6.0", features = ["wasm"] }
 gloo = "0.11.0"
+gloo-timers = { version = "0.3.0", features =["futures"] }
+thiserror = "2.0.17"
 
 [profile.release]
 opt-level = "z"

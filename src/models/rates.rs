@@ -1,10 +1,11 @@
 use super::error::AppError;
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Rate {
     pub value_inc_vat: f64,
+    pub value_exc_vat: f64,
     pub valid_from: DateTime<Utc>,
     pub valid_to: DateTime<Utc>,
 }
@@ -140,6 +141,45 @@ impl Rates {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct TrackerRates {
+    data: Vec<Rate>,
+}
+
+impl TrackerRates {
+    pub fn new(mut data: Vec<Rate>) -> Self {
+        data.sort_by_key(|r| r.valid_from);
+        Self { data }
+    }
+
+    pub fn current_rate(&self) -> Option<&Rate> {
+        let now = Utc::now();
+        self.data
+            .iter()
+            .find(|r| r.valid_from <= now && r.valid_to > now)
+    }
+
+    pub fn next_day_rate(&self) -> Option<&Rate> {
+        let today = Utc::now().date_naive();
+        self.data.iter().find(|r| r.valid_from.date_naive() > today)
+    }
+
+    pub fn current_price(&self) -> Option<f64> {
+        self.current_rate().map(|r| r.value_inc_vat)
+    }
+
+    pub fn next_day_price(&self) -> Option<f64> {
+        self.next_day_rate().map(|r| r.value_inc_vat)
+    }
+
+    pub fn price_difference(&self) -> Option<f64> {
+        match (self.current_price(), self.next_day_price()) {
+            (Some(current), Some(next)) => Some(next - current),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,6 +190,7 @@ mod tests {
         let valid_to = Utc.with_ymd_and_hms(2024, 1, 15, hour, 30, 0).unwrap();
         Rate {
             value_inc_vat: value,
+            value_exc_vat: value / 1.2,
             valid_from,
             valid_to,
         }
@@ -180,11 +221,13 @@ mod tests {
         let rates = Rates::new(vec![
             Rate {
                 value_inc_vat: 15.0,
+                value_exc_vat: 15.0 / 1.2,
                 valid_from: valid_from_1,
                 valid_to: valid_to_1,
             },
             Rate {
                 value_inc_vat: 20.0,
+                value_exc_vat: 20.0 / 1.2,
                 valid_from: valid_from_2,
                 valid_to: valid_to_2,
             },
