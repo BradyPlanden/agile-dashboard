@@ -170,6 +170,18 @@ impl ApiConfig {
         )
     }
 
+    /// Constructs the full URL for historical Agile tariff rates (365 days).
+    pub fn agile_url_historical(&self, now: DateTime<Utc>, n_days: i64) -> String {
+        let base = self.build_tariff_url(&self.agile_product);
+        let (from, to) = Self::calculate_historical_period(now, n_days);
+        format!(
+            "{}?period_from={}&period_to={}",
+            base,
+            from.format("%Y-%m-%dT%H:%M:%SZ"),
+            to.format("%Y-%m-%dT%H:%M:%SZ")
+        )
+    }
+
     /// Constructs the full URL for Tracker tariff rates with date period.
     pub fn tracker_url(&self, now: DateTime<Utc>) -> String {
         let base = self.build_tariff_url(&self.tracker_product);
@@ -194,6 +206,17 @@ impl ApiConfig {
         let midnight = NaiveTime::MIN;
         let start = now.date_naive().and_time(midnight).and_utc();
         let end = start + Duration::days(2);
+        (start, end)
+    }
+
+    /// calculate the historical period to acquire agile rates for
+    fn calculate_historical_period(
+        now: DateTime<Utc>,
+        n_days: i64,
+    ) -> (DateTime<Utc>, DateTime<Utc>) {
+        let midnight = NaiveTime::MIN;
+        let end = now.date_naive().and_time(midnight).and_utc();
+        let start = end - Duration::days(n_days);
         (start, end)
     }
 }
@@ -258,6 +281,10 @@ impl ApiConfigBuilder {
 #[derive(Deserialize, Debug)]
 struct ApiResponse<T> {
     results: Vec<T>,
+    #[serde(default)]
+    next: Option<String>,
+    #[serde(default)]
+    count: Option<usize>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -314,6 +341,15 @@ impl OctopusClient {
         Ok(Rates::new(rates))
     }
 
+    /// Fetches historical Agile tariff rates (365 days).
+    pub async fn fetch_agile_rates_historical(&self) -> Result<Rates, AppError> {
+        let url = self.config.agile_url_historical(Utc::now(), 365);
+
+        // Use paginated fetch to get all historical data
+        let rates = self.fetch_paginated(&url).await?;
+        Ok(Rates::new(rates))
+    }
+
     /// Fetches Tracker tariff rates.
     pub async fn fetch_tracker_rates(&self) -> Result<TrackerRates, AppError> {
         self.fetch_tracker_rates_at(Utc::now()).await
@@ -353,6 +389,101 @@ impl OctopusClient {
         Ok(api_response.results.into_iter().map(Into::into).collect())
     }
 
+    /// Fetches a single page with retry logic for 429 rate limit errors.
+    /// Returns the rates and the next page URL if available.
+    async fn fetch_page_with_retry(
+        &self,
+        url: &str,
+    ) -> Result<(Vec<Rate>, Option<String>), AppError> {
+        use gloo_timers::future::TimeoutFuture;
+
+        let mut retry_delay_ms = 100u32;
+        let max_retries = crate::config::Config::MAX_RETRY_ATTEMPTS;
+
+        for attempt in 0..max_retries {
+            let response = self
+                .http
+                .get(url)
+                .send()
+                .await
+                .map_err(|e| self.classify_error(e))?;
+
+            let status = response.status();
+
+            // Handle rate limiting with exponential backoff
+            if status.as_u16() == 429 && attempt < max_retries - 1 {
+                gloo::console::warn!(format!(
+                    "Rate limited, retrying in {}ms (attempt {}/{})",
+                    retry_delay_ms,
+                    attempt + 1,
+                    max_retries
+                ));
+                TimeoutFuture::new(retry_delay_ms).await;
+                retry_delay_ms *= 5; // Exponential backoff: 100ms, 500ms, 2500ms
+                continue;
+            }
+
+            // Handle other error statuses
+            if !status.is_success() {
+                let body = response.text().await.unwrap_or_default();
+                return Err(self.error_for_status(status, &body));
+            }
+
+            // Parse successful response
+            let api_response: ApiResponse<ApiRate> = response
+                .json()
+                .await
+                .map_err(|e| AppError::ApiError(format!("Failed to parse response: {e}")))?;
+
+            let rates: Vec<Rate> = api_response.results.into_iter().map(Into::into).collect();
+            return Ok((rates, api_response.next));
+        }
+
+        Err(AppError::RateLimited)
+    }
+
+    /// Fetches data across multiple pages, following `next` links.
+    /// Returns accumulated data even if later pages fail (partial success).
+    async fn fetch_paginated(&self, initial_url: &str) -> Result<Vec<Rate>, AppError> {
+        use gloo_timers::future::TimeoutFuture;
+
+        let mut all_rates = Vec::new();
+        let mut next_url = Some(initial_url.to_string());
+        let mut page = 1;
+
+        while let Some(url) = next_url {
+            // Fetch current page with retry logic
+            match self.fetch_page_with_retry(&url).await {
+                Ok((rates, next)) => {
+                    all_rates.extend(rates);
+                    next_url = next;
+
+                    // Rate limiting delay between pages (except on last page)
+                    if next_url.is_some() {
+                        TimeoutFuture::new(crate::config::Config::PAGINATION_DELAY_MS).await;
+                    }
+                    page += 1;
+                }
+                Err(e) => {
+                    // Return partial data if we have some, otherwise propagate error
+                    if all_rates.is_empty() {
+                        return Err(e);
+                    } else {
+                        gloo::console::warn!(format!(
+                            "Pagination stopped at page {} with error: {}. Returning {} records.",
+                            page,
+                            e,
+                            all_rates.len()
+                        ));
+                        break;
+                    }
+                }
+            }
+        }
+
+        Ok(all_rates)
+    }
+
     /// Converts a reqwest error into an appropriate AppError.
     fn classify_error(&self, error: reqwest::Error) -> AppError {
         if error.is_timeout() {
@@ -387,6 +518,11 @@ impl Default for OctopusClient {
 /// Fetches Agile rates using default configuration.
 pub async fn fetch_rates() -> Result<Rates, AppError> {
     OctopusClient::new()?.fetch_agile_rates().await
+}
+
+/// Fetches historical Agile rates (365 days) using default configuration.
+pub async fn fetch_historical_rates() -> Result<Rates, AppError> {
+    OctopusClient::new()?.fetch_agile_rates_historical().await
 }
 
 /// Fetches Tracker rates using default configuration.
@@ -468,5 +604,58 @@ mod tests {
 
         // Verify no 'I' region (not used by Octopus)
         assert!(!regions.iter().any(|r| r.code() == "I"));
+    }
+
+    #[test]
+    fn test_api_response_with_pagination() {
+        let json = r#"{
+            "count": 469,
+            "next": "https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-C/standard-unit-rates/?page=2",
+            "results": []
+        }"#;
+
+        let response: ApiResponse<ApiRate> = serde_json::from_str(json).unwrap();
+        assert_eq!(response.count, Some(469));
+        assert!(response.next.is_some());
+        assert!(response.results.is_empty());
+    }
+
+    #[test]
+    fn test_api_response_without_pagination() {
+        let json = r#"{"results": []}"#;
+
+        let response: ApiResponse<ApiRate> = serde_json::from_str(json).unwrap();
+        assert_eq!(response.count, None);
+        assert_eq!(response.next, None);
+        assert!(response.results.is_empty());
+    }
+
+    #[test]
+    fn test_api_response_with_results() {
+        let json = r#"{
+            "count": 2,
+            "next": null,
+            "results": [
+                {
+                    "value_exc_vat": 10.5,
+                    "value_inc_vat": 11.025,
+                    "valid_from": "2024-01-01T00:00:00Z",
+                    "valid_to": "2024-01-01T00:30:00Z"
+                },
+                {
+                    "value_exc_vat": 12.0,
+                    "value_inc_vat": 12.6,
+                    "valid_from": "2024-01-01T00:30:00Z",
+                    "valid_to": "2024-01-01T01:00:00Z"
+                }
+            ]
+        }"#;
+
+        let response: ApiResponse<ApiRate> = serde_json::from_str(json).unwrap();
+        assert_eq!(response.count, Some(2));
+        assert_eq!(response.next, None);
+        assert_eq!(response.results.len(), 2);
+        assert_eq!(response.results[0].value_exc_vat, 10.5);
+        assert_eq!(response.results[1].value_inc_vat, 12.6);
     }
 }

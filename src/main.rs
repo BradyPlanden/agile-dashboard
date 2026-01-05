@@ -10,13 +10,27 @@ use components::chart::Chart;
 use components::status::Status;
 use components::summary::Summary;
 use components::tracker_display::TrackerDisplay;
+use components::{TraceBanner, compute_means};
+use hooks::use_historical_rates::use_historical_rates;
 use hooks::use_rates::use_rates;
 use hooks::use_tracker::use_tracker_rates;
 
 #[function_component(App)]
 fn app() -> Html {
     let state = use_rates();
+    let historical_state = use_historical_rates();
     let tracker_state = use_tracker_rates();
+
+    // Transform historical Agile rates to banner values using memoization
+    let banner_values = use_memo(historical_state.clone(), |state| {
+        match state.data() {
+            Some(rates) => {
+                let grouped = rates.grouped_by_half_hour_slot();
+                compute_means(&grouped)
+            }
+            None => vec![], // Empty during Loading/Error
+        }
+    });
 
     html! {
         <div class="app-container">
@@ -25,10 +39,20 @@ fn app() -> Html {
             </header>
 
             <main class="app-main">
-                <section class="status-section">
-                    <h2>{"API Status"}</h2>
-                    <Status state={(*state).clone()} />
-                </section>
+                // Banner section - only show when historical data is loaded and values exist
+                if let Some(_rates) = historical_state.data() {
+                    if !banner_values.is_empty() {
+                        <section class="banner-section">
+                            <TraceBanner
+                                values={(*banner_values).clone()}
+                                height={100}
+                                color="#3b82f6"
+                                stroke_width={2.0}
+                                smooth={true}
+                            />
+                        </section>
+                    }
+                }
 
                 if let Some(rates) = state.data() {
                     <section class="data-section">
@@ -64,6 +88,10 @@ fn app() -> Html {
                         <Chart rates={rates.clone()} />
                     </section>
                 }
+                <section class="status-section">
+                    <h2>{"API Status"}</h2>
+                    <Status state={(*state).clone()} />
+                </section>
             </main>
 
             <style>

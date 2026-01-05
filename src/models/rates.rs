@@ -139,6 +139,38 @@ impl Rates {
 
         Ok((x_data, y_data))
     }
+
+    /// Extracts values grouped by half-hour slot across multiple days
+    /// Returns Vec<Vec<f64>> where outer Vec is 48 half-hour slots,
+    /// inner Vec contains values for that slot across all days
+    pub fn grouped_by_half_hour_slot(&self) -> Vec<Vec<f64>> {
+        use chrono::Timelike;
+        use std::collections::HashMap;
+
+        // Group rates by their time-of-day slot (0-47 for 00:00-23:30)
+        let mut slots: HashMap<usize, Vec<f64>> = HashMap::new();
+
+        for rate in &self.data {
+            let hour = rate.valid_from.hour() as usize;
+            let minute = rate.valid_from.minute() as usize;
+            let slot = hour * 2 + minute / 30; // 0-47 for half-hour slots
+
+            slots
+                .entry(slot)
+                .or_insert_with(Vec::new)
+                .push(rate.value_inc_vat);
+        }
+
+        // Convert to Vec<Vec<f64>> with 48 entries
+        let mut result = vec![vec![]; 48];
+        for (slot, values) in slots {
+            if slot < 48 {
+                result[slot] = values;
+            }
+        }
+
+        result
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

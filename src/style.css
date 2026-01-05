@@ -29,6 +29,20 @@
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+/* Banner section - compact card layout */
+.banner-section {
+    background: white;
+    padding: 15px 25px;  /* Less vertical padding for compact height */
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;  /* Clip SVG to card bounds */
+}
+
+.trace-banner {
+    display: block;
+    width: 100%;
+}
+
 .status {
     display: flex;
     align-items: center;
