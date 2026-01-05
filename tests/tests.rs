@@ -408,35 +408,44 @@ mod tests {
 
     #[test]
     fn test_tracker_with_example_response_data() {
-        use chrono::TimeZone;
+        // Data from example-response.json (adapted to use dynamic dates)
+        // This test verifies TrackerRates works with real-world API response structure
+        let today = Utc::now().date_naive();
+        let yesterday = today.checked_sub_days(Days::new(1)).unwrap();
+        let tomorrow = today.checked_add_days(Days::new(1)).unwrap();
 
-        // Data from example-response.json (as if today is 2026-01-02)
         let rates_data = vec![
             Rate {
                 value_exc_vat: 16.47,
                 value_inc_vat: 17.2935,
-                valid_from: Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2026, 1, 2, 0, 0, 0).unwrap(),
+                valid_from: Utc.from_utc_datetime(&yesterday.and_hms_opt(0, 0, 0).unwrap()),
+                valid_to: Utc.from_utc_datetime(&today.and_hms_opt(0, 0, 0).unwrap()),
             },
             Rate {
                 value_exc_vat: 19.69,
                 value_inc_vat: 20.6745,
-                valid_from: Utc.with_ymd_and_hms(2026, 1, 2, 0, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2026, 1, 3, 0, 0, 0).unwrap(),
+                valid_from: Utc.from_utc_datetime(&today.and_hms_opt(0, 0, 0).unwrap()),
+                valid_to: Utc.from_utc_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap()),
             },
             Rate {
                 value_exc_vat: 21.29,
                 value_inc_vat: 22.3545,
-                valid_from: Utc.with_ymd_and_hms(2026, 1, 3, 0, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2026, 1, 4, 0, 0, 0).unwrap(),
+                valid_from: Utc.from_utc_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap()),
+                valid_to: Utc.from_utc_datetime(
+                    &tomorrow
+                        .checked_add_days(Days::new(1))
+                        .unwrap()
+                        .and_hms_opt(0, 0, 0)
+                        .unwrap(),
+                ),
             },
         ];
 
         let tracker = TrackerRates::new(rates_data);
 
-        // Since this test runs on 2026-01-02, we expect:
-        // - current_price: 20.6745 (Jan 2)
-        // - next_day_price: 22.3545 (Jan 3)
+        // Since we're using dynamic dates, we expect:
+        // - current_price: 20.6745 (today)
+        // - next_day_price: 22.3545 (tomorrow)
         let current = tracker.current_price();
         let next_day = tracker.next_day_price();
 
@@ -450,10 +459,8 @@ mod tests {
             "Next day price should be Some, got None"
         );
 
-        // If we're running on 2026-01-02, these should match
-        if current == Some(20.6745) {
-            assert_eq!(current.unwrap(), 20.6745);
-            assert_eq!(next_day.unwrap(), 22.3545);
-        }
+        // Verify the values match expected prices from example data
+        assert_eq!(current.unwrap(), 20.6745);
+        assert_eq!(next_day.unwrap(), 22.3545);
     }
 }
