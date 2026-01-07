@@ -102,6 +102,32 @@
     color: #6c757d;
 }
 
+/* Wrapper for day cards (vertical stacking) */
+.data-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Individual day card */
+.day-summary-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.day-summary-card h2 {
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+    font-size: 1.2rem;
+}
+
+/* Tomorrow card visual distinction */
+.day-summary-card.tomorrow {
+    border-left: 4px solid #3b82f6;
+}
+
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -153,7 +179,6 @@
     padding: 20px;
     background: #f8f9fa;
     border-radius: 8px;
-    border-left: 4px solid #007bff;
 }
 
 .tracker-item h3 {
@@ -165,6 +190,29 @@
 }
 
 .tracker-value {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.tracker-item-tomorrow {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.tracker-item-tomorrow h3 {
+    margin: 0 0 10px 0;
+    color: #495057;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.tracker-value-tomorrow {
     margin: 0;
     font-size: 1.5rem;
     font-weight: bold;

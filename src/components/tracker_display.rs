@@ -35,7 +35,7 @@ pub fn tracker_display(props: &TrackerDisplayProps) -> Html {
                         }
                     </p>
                 </div>
-                <div class="tracker-item">
+                <div class="tracker-item-tomorrow">
                     <h3>{"Tomorrow's Price"}</h3>
                     <p class="tracker-value">
                         {

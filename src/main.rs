@@ -56,7 +56,7 @@ fn app() -> Html {
 
                 if let Some(rates) = state.data() {
                     <section class="data-section">
-                        <h2>{"Data Summary"}</h2>
+                        <h2>{"Agile Electricity"}</h2>
                         <Summary rates={rates.clone()} />
                     </section>
 

@@ -1,3 +1,4 @@
+use crate::components::DaySummary;
 use crate::models::rates::Rates;
 use std::rc::Rc;
 use yew::prelude::*;
@@ -9,29 +10,30 @@ pub struct SummaryProps {
 
 #[function_component(Summary)]
 pub fn summary(props: &SummaryProps) -> Html {
-    let stats_result = use_memo(props.rates.clone(), |rates| rates.stats());
+    let daily_stats = use_memo(props.rates.clone(), |rates| rates.daily_stats());
 
-    match &*stats_result {
-        Ok(summary) => html! {
-             <div class="data-summary">
-                <div class="summary-grid">
-                    <div class="summary-item">
-                        <h3>{"Price Range"}</h3>
-                        <p class="summary-value">{&summary.price_range}</p>
-                    </div>
-                    <div class="summary-item">
-                        <h3>{"Average Price"}</h3>
-                        <p class="summary-value">{format!("{:.2}p", summary.avg)}</p>
-                    </div>
-                    <div class="summary-item">
-                        <h3>{"Current Price"}</h3>
-                        <p class="summary-value">{format!("{:.2}p", summary.current)}</p>
-                    </div>
-                    <div class="summary-item">
-                        <h3>{"Next Price"}</h3>
-                        <p class="summary-value">{format!("{:.2}p", summary.next)}</p>
-                    </div>
-                </div>
+    match &*daily_stats {
+        Ok(stats) => html! {
+            <div class="data-summary">
+                // Today's card (always shown)
+                <DaySummary
+                    stats={stats.today.clone()}
+                    title={"Today's Statistics"}
+                    current_price={Some(stats.current)}
+                    next_price={Some(stats.next)}
+                    is_tomorrow={false}
+                />
+
+                // Tomorrow's card (conditional)
+                if let Some(tomorrow) = &stats.tomorrow {
+                    <DaySummary
+                        stats={tomorrow.clone()}
+                        title={"Tomorrow's Statistics"}
+                        current_price={None}
+                        next_price={None}
+                        is_tomorrow={true}
+                    />
+                }
             </div>
         },
         Err(e) => html! {
