@@ -10,9 +10,10 @@ use components::chart::Chart;
 use components::status::Status;
 use components::summary::Summary;
 use components::tracker_display::TrackerDisplay;
-use components::{TraceBanner, compute_means};
+use components::{ThemeToggle, TraceBanner, compute_means};
 use hooks::use_historical_rates::use_historical_rates;
 use hooks::use_rates::use_rates;
+use hooks::use_theme::{Theme, use_theme};
 use hooks::use_tracker::use_tracker_rates;
 
 #[function_component(App)]
@@ -20,6 +21,7 @@ fn app() -> Html {
     let state = use_rates();
     let historical_state = use_historical_rates();
     let tracker_state = use_tracker_rates();
+    let theme_handle = use_theme();
 
     // Transform historical Agile rates to banner values using memoization
     let banner_values = use_memo(historical_state.clone(), |state| {
@@ -36,6 +38,7 @@ fn app() -> Html {
         <div class="app-container">
             <header class="app-header">
                 <h1>{"Octopus Agile Dashboard"}</h1>
+                <ThemeToggle />
             </header>
 
             <main class="app-main">
@@ -46,7 +49,6 @@ fn app() -> Html {
                             <TraceBanner
                                 values={(*banner_values).clone()}
                                 height={100}
-                                color="#3b82f6"
                                 stroke_width={2.0}
                                 smooth={true}
                             />
@@ -85,7 +87,7 @@ fn app() -> Html {
 
                     <section class="chart-section">
                         <h2>{"Energy Price Distribution"}</h2>
-                        <Chart rates={rates.clone()} />
+                        <Chart rates={rates.clone()} dark_mode={theme_handle.effective_theme == Theme::Dark} />
                     </section>
                 }
                 <section class="status-section">

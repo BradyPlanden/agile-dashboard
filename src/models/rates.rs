@@ -252,7 +252,10 @@ impl Rates {
 
         let tomorrow_stats = self.stats_for_date(tomorrow);
 
-        let current = self.rate_at(Utc::now()).map(|r| r.value_inc_vat).unwrap_or(0.0);
+        let current = self
+            .rate_at(Utc::now())
+            .map(|r| r.value_inc_vat)
+            .unwrap_or(0.0);
         let next = self
             .next_rate(Utc::now())
             .map(|r| r.value_inc_vat)

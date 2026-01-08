@@ -129,7 +129,7 @@ pub struct TraceBannerProps {
     pub height: u32,
 
     /// Stroke color
-    #[prop_or_else(|| "#3b82f6".to_string())]
+    #[prop_or_else(|| "var(--color-accent-blue)".to_string())]
     pub color: String,
 
     /// Stroke width

@@ -1,19 +1,170 @@
+/* CSS Custom Properties for theming */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+:root {
+    /* Base colors - Light mode (default) */
+    --color-bg-primary: #ffffff;
+    --color-bg-secondary: #f8f9fa;
+    --color-bg-tertiary: #f3f3f3;
+    --color-text-primary: #2c3e50;
+    --color-text-secondary: #495057;
+    --color-text-tertiary: #6c757d;
+    --color-border: #dee2e6;
+
+    /* Shadow variables */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+    /* Status colors */
+    --color-status-loading: #007bff;
+    --color-status-success: #28a745;
+    --color-status-error: #dc3545;
+    --color-status-loading-bg: #f8f9fa;
+    --color-status-success-bg: #d4edda;
+    --color-status-error-bg: #f8d7da;
+
+    /* Chart colors */
+    --color-chart-title: #1f2937;
+    --color-chart-axis: #6b7280;
+    --color-chart-grid: #e5e7eb;
+    --color-accent-blue: #3b82f6;
+
+    /* Price indicators */
+    --color-price-increase: #dc3545;
+    --color-price-decrease: #28a745;
+
+    /* Spinner */
+    --color-spinner-bg: #f3f3f3;
+}
+
+[data-theme="dark"] {
+    /* Base colors - Dark mode */
+    --color-bg-primary: #1a1a1a;
+    --color-bg-secondary: #2d2d2d;
+    --color-bg-tertiary: #3a3a3a;
+    --color-text-primary: #e4e4e7;
+    --color-text-secondary: #a1a1aa;
+    --color-text-tertiary: #71717a;
+    --color-border: #404040;
+
+    /* Shadow variables - softer for dark mode */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.5);
+
+    /* Status colors - adjusted for readability */
+    --color-status-loading: #3b82f6;
+    --color-status-success: #22c55e;
+    --color-status-error: #ef4444;
+    --color-status-loading-bg: #1e3a8a;
+    --color-status-success-bg: #14532d;
+    --color-status-error-bg: #7f1d1d;
+
+    /* Chart colors - lighter for visibility */
+    --color-chart-title: #e4e4e7;
+    --color-chart-axis: #a1a1aa;
+    --color-chart-grid: #404040;
+    --color-accent-blue: #60a5fa;
+
+    /* Price indicators - more vibrant */
+    --color-price-increase: #f87171;
+    --color-price-decrease: #4ade80;
+
+    /* Spinner */
+    --color-spinner-bg: #3a3a3a;
+}
+
+/* Auto-detect system preference if no explicit theme set */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+        /* Base colors - Dark mode */
+        --color-bg-primary: #1a1a1a;
+        --color-bg-secondary: #2d2d2d;
+        --color-bg-tertiary: #3a3a3a;
+        --color-text-primary: #e4e4e7;
+        --color-text-secondary: #a1a1aa;
+        --color-text-tertiary: #71717a;
+        --color-border: #404040;
+
+        /* Shadow variables */
+        --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.5);
+
+        /* Status colors */
+        --color-status-loading: #3b82f6;
+        --color-status-success: #22c55e;
+        --color-status-error: #ef4444;
+        --color-status-loading-bg: #1e3a8a;
+        --color-status-success-bg: #14532d;
+        --color-status-error-bg: #7f1d1d;
+
+        /* Chart colors */
+        --color-chart-title: #e4e4e7;
+        --color-chart-axis: #a1a1aa;
+        --color-chart-grid: #404040;
+        --color-accent-blue: #60a5fa;
+
+        /* Price indicators */
+        --color-price-increase: #f87171;
+        --color-price-decrease: #4ade80;
+
+        /* Spinner */
+        --color-spinner-bg: #3a3a3a;
+    }
+}
+
 .app-container {
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .app-header {
+    position: relative;
     text-align: center;
     margin-bottom: 40px;
 }
 
 .app-header h1 {
-    color: #2c3e50;
+    color: var(--color-text-primary);
     font-size: 2.5rem;
     margin: 0;
+    transition: color 0.2s ease;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 15px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+}
+
+.theme-toggle:hover {
+    background: var(--color-bg-tertiary);
+    transform: scale(1.05);
+}
+
+.theme-toggle:active {
+    transform: scale(0.95);
 }
 
 .app-main {
@@ -22,20 +173,28 @@
     gap: 30px;
 }
 
+.app-main h2 {
+    color: var(--color-text-primary);
+    margin: 0 0 20px 0;
+    transition: color 0.2s ease;
+}
+
 .status-section, .chart-section, .data-section {
-    background: white;
+    background: var(--color-bg-primary);
     padding: 25px;
     border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 /* Banner section - compact card layout */
 .banner-section {
-    background: white;
+    background: var(--color-bg-primary);
     padding: 15px 25px;  /* Less vertical padding for compact height */
     border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
     overflow: hidden;  /* Clip SVG to card bounds */
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .trace-banner {
@@ -52,25 +211,28 @@
 }
 
 .status.loading {
-    background: #f8f9fa;
-    border-left: 4px solid #007bff;
+    background: var(--color-status-loading-bg);
+    border-left: 4px solid var(--color-status-loading);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .status.success {
-    background: #d4edda;
-    border-left: 4px solid #28a745;
+    background: var(--color-status-success-bg);
+    border-left: 4px solid var(--color-status-success);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .status.error {
-    background: #f8d7da;
-    border-left: 4px solid #dc3545;
+    background: var(--color-status-error-bg);
+    border-left: 4px solid var(--color-status-error);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .spinner {
     width: 20px;
     height: 20px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid #007bff;
+    border: 2px solid var(--color-spinner-bg);
+    border-top: 2px solid var(--color-status-loading);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -96,10 +258,11 @@
     align-items: center;
     justify-content: center;
     height: 400px;
-    background: #f8f9fa;
-    border: 2px dashed #dee2e6;
+    background: var(--color-bg-secondary);
+    border: 2px dashed var(--color-border);
     border-radius: 8px;
-    color: #6c757d;
+    color: var(--color-text-tertiary);
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 /* Wrapper for day cards (vertical stacking) */
@@ -111,21 +274,24 @@
 
 /* Individual day card */
 .day-summary-card {
-    background: white;
+    background: var(--color-bg-primary);
     padding: 20px;
     border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-sm);
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .day-summary-card h2 {
     margin: 0 0 15px 0;
-    color: #2c3e50;
+    color: var(--color-text-primary);
     font-size: 1.2rem;
+    transition: color 0.2s ease;
 }
 
 /* Tomorrow card visual distinction */
 .day-summary-card.tomorrow {
-    border-left: 4px solid #3b82f6;
+    border-left: 4px solid var(--color-accent-blue);
+    transition: border-color 0.2s ease;
 }
 
 .summary-grid {
@@ -137,31 +303,35 @@
 .summary-item {
     text-align: center;
     padding: 20px;
-    background: #f8f9fa;
+    background: var(--color-bg-secondary);
     border-radius: 8px;
+    transition: background-color 0.2s ease;
 }
 
 .summary-item h3 {
     margin: 0 0 10px 0;
-    color: #495057;
+    color: var(--color-text-secondary);
     font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 1px;
+    transition: color 0.2s ease;
 }
 
 .summary-value {
     margin: 0;
     font-size: 1.5rem;
     font-weight: bold;
-    color: #2c3e50;
+    color: var(--color-text-primary);
+    transition: color 0.2s ease;
 }
 
 .tracker-section {
-    background: white;
+    background: var(--color-bg-primary);
     padding: 25px;
     border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
     margin-bottom: 30px;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .tracker-display {
@@ -177,56 +347,64 @@
 .tracker-item {
     text-align: center;
     padding: 20px;
-    background: #f8f9fa;
+    background: var(--color-bg-secondary);
     border-radius: 8px;
+    transition: background-color 0.2s ease;
 }
 
 .tracker-item h3 {
     margin: 0 0 10px 0;
-    color: #495057;
+    color: var(--color-text-secondary);
     font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 1px;
+    transition: color 0.2s ease;
 }
 
 .tracker-value {
     margin: 0;
     font-size: 1.5rem;
     font-weight: bold;
-    color: #2c3e50;
+    color: var(--color-text-primary);
+    transition: color 0.2s ease;
 }
 
 .tracker-item-tomorrow {
     text-align: center;
     padding: 20px;
-    background: #f8f9fa;
+    background: var(--color-bg-secondary);
     border-radius: 8px;
-    border-left: 4px solid #007bff;
+    border-left: 4px solid var(--color-status-loading);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .tracker-item-tomorrow h3 {
     margin: 0 0 10px 0;
-    color: #495057;
+    color: var(--color-text-secondary);
     font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 1px;
+    transition: color 0.2s ease;
 }
 
 .tracker-value-tomorrow {
     margin: 0;
     font-size: 1.5rem;
     font-weight: bold;
-    color: #2c3e50;
+    color: var(--color-text-primary);
+    transition: color 0.2s ease;
 }
 
 .price-increase {
-    color: #dc3545;
+    color: var(--color-price-increase);
     font-size: 1.1rem;
+    transition: color 0.2s ease;
 }
 
 .price-decrease {
-    color: #28a745;
+    color: var(--color-price-decrease);
     font-size: 1.1rem;
+    transition: color 0.2s ease;
 }
 
 @media (max-width: 768px) {
