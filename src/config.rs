@@ -9,8 +9,8 @@ impl Config {
     pub const POLLING_INTERVAL_MS: u32 = 600_000;
 
     /// Delay between pagination requests (ms) to avoid rate limiting
-    pub const PAGINATION_DELAY_MS: u32 = 1;
+    pub const PAGINATION_DELAY_MS: u32 = 5;
 
     /// Maximum retry attempts for rate-limited requests
-    pub const MAX_RETRY_ATTEMPTS: u32 = 5;
+    pub const MAX_RETRY_ATTEMPTS: u32 = 10;
 }
