@@ -176,7 +176,7 @@ impl Rates {
 
             slots
                 .entry(slot)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(rate.value_inc_vat);
         }
 

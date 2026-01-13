@@ -28,7 +28,7 @@ pub fn use_theme() -> ThemeHandle {
     let theme = use_state(|| load_theme_preference().unwrap_or(Theme::Auto));
 
     // Detect system preference
-    let system_preference = use_state(|| detect_system_preference());
+    let system_preference = use_state(detect_system_preference);
 
     // Compute effective theme (resolve Auto to Light/Dark)
     let effective_theme = match *theme {
@@ -38,7 +38,6 @@ pub fn use_theme() -> ThemeHandle {
 
     // Effect: Apply theme to DOM
     {
-        let effective_theme = effective_theme;
         use_effect_with(effective_theme, move |theme| {
             apply_theme_to_dom(*theme);
             || ()
@@ -105,15 +104,15 @@ fn detect_system_preference() -> Theme {
 
 /// Apply theme to DOM by setting data-theme attribute on <html>
 fn apply_theme_to_dom(theme: Theme) {
-    if let Some(document) = web_sys::window().and_then(|w| w.document()) {
-        if let Some(html) = document.document_element() {
-            let theme_str = match theme {
-                Theme::Dark => "dark",
-                Theme::Light => "light",
-                Theme::Auto => "light", // Auto should already be resolved
-            };
-            let _ = html.set_attribute("data-theme", theme_str);
-        }
+    if let Some(document) = web_sys::window().and_then(|w| w.document())
+        && let Some(html) = document.document_element()
+    {
+        let theme_str = match theme {
+            Theme::Dark => "dark",
+            Theme::Light => "light",
+            Theme::Auto => "light", // Auto should already be resolved
+        };
+        let _ = html.set_attribute("data-theme", theme_str);
     }
 }
 

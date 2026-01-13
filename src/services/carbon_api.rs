@@ -78,7 +78,7 @@ impl CarbonIntensityClient {
             .iter()
             .find(|period| {
                 // Period that follows now, or period containing now
-                period.from > now || (period.from <= now && now < period.to)
+                period.from > now || now < period.to
             })
             .ok_or_else(|| AppError::DataError("No next period found in response".to_string()))?
             .clone();
