@@ -407,6 +407,196 @@ body {
     transition: color 0.2s ease;
 }
 
+/* Carbon Intensity Section */
+.carbon-section {
+    background: var(--color-bg-primary);
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.carbon-display {
+    margin-top: 10px;
+}
+
+.carbon-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+}
+
+.carbon-item {
+    text-align: center;
+    padding: 20px;
+    background: var(--color-bg-secondary);
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
+}
+
+.carbon-item h3 {
+    margin: 0 0 10px 0;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: color 0.2s ease;
+}
+
+.carbon-value {
+    margin: 0 0 5px 0;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--color-text-primary);
+    transition: color 0.2s ease;
+}
+
+.carbon-value-small {
+    margin: 10px 0 0 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    transition: color 0.2s ease;
+}
+
+.carbon-unit {
+    font-size: 0.9rem;
+    font-weight: normal;
+    color: var(--color-text-secondary);
+}
+
+.carbon-source {
+    margin: 5px 0 0 0;
+    font-size: 0.8rem;
+    color: var(--color-text-tertiary);
+    font-style: italic;
+    transition: color 0.2s ease;
+}
+
+.carbon-time {
+    margin: 10px 0 0 0;
+    font-size: 0.8rem;
+    color: var(--color-text-tertiary);
+    transition: color 0.2s ease;
+}
+
+.carbon-item-current {
+    grid-column: 1;
+}
+
+.carbon-item-current .carbon-value {
+    font-size: 2.5rem;
+}
+
+.carbon-item-next {
+    grid-column: 2;
+}
+
+.carbon-item-next .carbon-value {
+    font-size: 2rem;
+}
+
+.carbon-item-change {
+    grid-column: 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.carbon-change {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    padding: 15px 0;
+}
+
+.carbon-change-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+.carbon-change-value {
+    font-size: 1rem;
+    line-height: 1.2;
+}
+
+.carbon-change-increasing {
+    color: #dc2626;
+}
+
+.carbon-change-decreasing {
+    color: #059669;
+}
+
+.carbon-change-stable {
+    color: #6b7280;
+}
+
+/* Carbon Index Badge */
+.carbon-index-badge {
+    display: inline-block;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: white;
+    margin: 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s ease;
+}
+
+.carbon-index-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Carbon intensity level colors */
+.intensity-very-low {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+}
+
+.intensity-low {
+    background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+}
+
+.intensity-moderate {
+    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+}
+
+.intensity-high {
+    background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
+}
+
+.intensity-very-high {
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+}
+
+/* Dark mode adjustments for carbon section */
+[data-theme="dark"] .carbon-index-badge {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .carbon-index-badge:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .carbon-change-increasing {
+    color: #f87171;
+}
+
+[data-theme="dark"] .carbon-change-decreasing {
+    color: #10b981;
+}
+
+[data-theme="dark"] .carbon-change-stable {
+    color: #9ca3af;
+}
+
 @media (max-width: 768px) {
     .app-container {
         padding: 10px;
@@ -414,5 +604,24 @@ body {
     
     .summary-grid {
         grid-template-columns: 1fr;
+    }
+
+    .carbon-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .carbon-item-current,
+    .carbon-item-next,
+    .carbon-item-change {
+        grid-column: 1;
+    }
+
+    .carbon-item-current .carbon-value,
+    .carbon-item-next .carbon-value {
+        font-size: 1.8rem;
+    }
+
+    .carbon-value {
+        font-size: 1.5rem;
     }
 }

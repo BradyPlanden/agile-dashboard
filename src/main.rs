@@ -10,7 +10,8 @@ use components::chart::Chart;
 use components::status::Status;
 use components::summary::Summary;
 use components::tracker_display::TrackerDisplay;
-use components::{ThemeToggle, TraceBanner, compute_means};
+use components::{CarbonDisplay, ThemeToggle, TraceBanner, compute_means};
+use hooks::use_carbon::{CarbonDataState, use_carbon_intensity};
 use hooks::use_historical_rates::use_historical_rates;
 use hooks::use_rates::use_rates;
 use hooks::use_theme::{Theme, use_theme};
@@ -21,6 +22,7 @@ fn app() -> Html {
     let state = use_rates();
     let historical_state = use_historical_rates();
     let tracker_state = use_tracker_rates();
+    let carbon_state = use_carbon_intensity();
     let theme_handle = use_theme();
 
     // Transform historical Agile rates to banner values using memoization
@@ -80,6 +82,29 @@ fn app() -> Html {
                                 <section class="tracker-section">
                                     <h2>{"Tracker Electricity"}</h2>
                                     <p class="error">{format!("Error loading tracker data: {}", err)}</p>
+                                </section>
+                            },
+                        }
+                    }
+
+                    {
+                        match &*carbon_state {
+                            CarbonDataState::Loading => html! {
+                                <section class="carbon-section">
+                                    <h2>{"Grid Carbon Intensity"}</h2>
+                                    <p>{"Loading carbon intensity data..."}</p>
+                                </section>
+                            },
+                            CarbonDataState::Loaded(carbon_data) => html! {
+                                <section class="carbon-section">
+                                    <h2>{"Grid Carbon Intensity"}</h2>
+                                    <CarbonDisplay data={carbon_data.clone()} />
+                                </section>
+                            },
+                            CarbonDataState::Error(err) => html! {
+                                <section class="carbon-section">
+                                    <h2>{"Grid Carbon Intensity"}</h2>
+                                    <p class="error">{format!("Error loading carbon data: {}", err)}</p>
                                 </section>
                             },
                         }
