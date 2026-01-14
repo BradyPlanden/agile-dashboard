@@ -167,6 +167,21 @@ body {
     transform: scale(0.95);
 }
 
+/* Cheapest period indicator */
+.cheapest-period {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 15px;
+    font-size: 1.2rem;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+    color: var(--color-text-primary);
+}
+
 .app-main {
     display: flex;
     flex-direction: column;

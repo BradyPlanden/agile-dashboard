@@ -174,10 +174,7 @@ impl Rates {
             let minute = rate.valid_from.minute() as usize;
             let slot = hour * 2 + minute / 30; // 0-47 for half-hour slots
 
-            slots
-                .entry(slot)
-                .or_default()
-                .push(rate.value_inc_vat);
+            slots.entry(slot).or_default().push(rate.value_inc_vat);
         }
 
         // Convert to Vec<Vec<f64>> with 48 entries

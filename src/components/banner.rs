@@ -163,16 +163,12 @@ pub fn trace_banner(props: &TraceBannerProps) -> Html {
 
                 // Setup resize listener
                 let viewbox_width = viewbox_width.clone();
-                EventListener::new(
-                    &web_sys::window().unwrap(),
-                    "resize",
-                    move |_| {
-                        let width = container.client_width() as f64;
-                        if width > 0.0 {
-                            viewbox_width.set(width);
-                        }
-                    },
-                )
+                EventListener::new(&web_sys::window().unwrap(), "resize", move |_| {
+                    let width = container.client_width() as f64;
+                    if width > 0.0 {
+                        viewbox_width.set(width);
+                    }
+                })
             });
 
             move || drop(listener)
