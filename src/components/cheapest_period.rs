@@ -1,4 +1,4 @@
-use chrono::{Duration, Local, Utc};
+use chrono::{Duration, DurationRound, Local, Utc};
 use yew::prelude::*;
 
 use crate::hooks::use_rates::{DataState, use_rates};
@@ -11,11 +11,14 @@ pub fn cheapest_period() -> Html {
     let cheapest_time = match &*state {
         DataState::Loaded(rates) => {
             let now = Utc::now();
+            let window_start = now
+                .duration_trunc(Duration::minutes(30))
+                .expect("30 minutes is a valid truncation duration");
             let three_hours_later = now + Duration::hours(3);
 
-            // Find the cheapest rate in the next 3 hours
+            // Find the cheapest rate in the next 3 hours (including current window)
             let cheapest = rates
-                .filter_from(now)
+                .filter_from(window_start) // Use window_start instead of now
                 .take_while(|r| r.valid_from < three_hours_later)
                 .min_by(|a, b| {
                     a.value_inc_vat
