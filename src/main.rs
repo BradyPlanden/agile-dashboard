@@ -10,18 +10,24 @@ use components::chart::Chart;
 use components::status::Status;
 use components::summary::Summary;
 use components::tracker_display::TrackerDisplay;
-use components::{CarbonDisplay, CheapestPeriod, ThemeToggle, TraceBanner, compute_means};
+use components::{
+    CarbonDisplay, CheapestPeriod, RegionSelector, ThemeToggle, TraceBanner, compute_means,
+};
 use hooks::use_carbon::{CarbonDataState, use_carbon_intensity};
 use hooks::use_historical_rates::use_historical_rates;
 use hooks::use_rates::use_rates;
+use hooks::use_region::use_region;
 use hooks::use_theme::{Theme, use_theme};
 use hooks::use_tracker::use_tracker_rates;
 
 #[function_component(App)]
 fn app() -> Html {
-    let state = use_rates();
+    let region_handle = use_region();
+    let region = region_handle.region;
+
+    let state = use_rates(region);
     let historical_state = use_historical_rates();
-    let tracker_state = use_tracker_rates();
+    let tracker_state = use_tracker_rates(region);
     let carbon_state = use_carbon_intensity();
     let theme_handle = use_theme();
 
@@ -41,6 +47,7 @@ fn app() -> Html {
             <header class="app-header">
                 <CheapestPeriod />
                 <h1>{"Octopus Agile Dashboard"}</h1>
+                <RegionSelector region={region} on_change={region_handle.set_region.clone()} />
                 <ThemeToggle />
             </header>
 

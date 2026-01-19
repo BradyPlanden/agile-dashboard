@@ -3,7 +3,7 @@ use crate::models::{
     rates::{Rate, Rates, TrackerRates},
 };
 use chrono::{DateTime, Duration, NaiveTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 // CONSTANTS
 const BASE_URL: &str = "https://api.octopus.energy/v1/products";
@@ -12,7 +12,7 @@ const DEFAULT_TRACKER_PRODUCT: &str = "SILVER-24-10-01";
 
 /// UK electricity distribution regions used by Octopus Energy.
 /// Each region corresponds to a Distribution Network Operator (DNO) area.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum Region {
     /// Eastern England
     A,
@@ -151,11 +151,6 @@ impl ApiConfig {
     /// Creates a builder for constructing an `ApiConfig`.
     pub fn builder() -> ApiConfigBuilder {
         ApiConfigBuilder::default()
-    }
-
-    /// Returns the region configured for this client.
-    pub fn region(&self) -> Region {
-        self.region
     }
 
     /// Constructs the full URL for Agile tariff rates.

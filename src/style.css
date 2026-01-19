@@ -167,6 +167,43 @@ body {
     transform: scale(0.95);
 }
 
+/* Region selector dropdown */
+.region-selector {
+    position: absolute;
+    top: 0;
+    right: 60px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+    color: var(--color-text-primary);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236c757d' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+}
+
+.region-selector:hover {
+    background-color: var(--color-bg-tertiary);
+}
+
+.region-selector:focus {
+    outline: none;
+    border-color: var(--color-accent-blue);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .region-selector {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a1a1aa' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+}
+
 /* Cheapest period indicator */
 .cheapest-period {
     position: absolute;
@@ -616,7 +653,31 @@ body {
     .app-container {
         padding: 10px;
     }
-    
+
+    .app-header h1 {
+        font-size: 1.5rem;
+        padding-top: 50px;
+    }
+
+    .region-selector {
+        position: absolute;
+        top: 0;
+        right: 50px;
+        font-size: 0.8rem;
+        padding: 6px 8px;
+        padding-right: 24px;
+    }
+
+    .theme-toggle {
+        padding: 8px 12px;
+        font-size: 1rem;
+    }
+
+    .cheapest-period {
+        font-size: 1rem;
+        padding: 8px 12px;
+    }
+
     .summary-grid {
         grid-template-columns: 1fr;
     }

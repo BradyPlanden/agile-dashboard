@@ -2,11 +2,13 @@ use chrono::{Duration, DurationRound, Local, Utc};
 use yew::prelude::*;
 
 use crate::hooks::use_rates::{DataState, use_rates};
+use crate::hooks::use_region::use_region;
 
 /// Displays the cheapest electricity period in the next 3 hours
 #[function_component(CheapestPeriod)]
 pub fn cheapest_period() -> Html {
-    let state = use_rates();
+    let region_handle = use_region();
+    let state = use_rates(region_handle.region);
 
     let cheapest_time = match &*state {
         DataState::Loaded(rates) => {

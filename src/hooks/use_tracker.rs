@@ -1,5 +1,5 @@
 use crate::models::rates::TrackerRates;
-use crate::services::api::fetch_tracker_rates;
+use crate::services::api::{Region, fetch_tracker_rates_for_region};
 use gloo_timers::future::TimeoutFuture;
 use std::rc::Rc;
 use wasm_bindgen_futures::spawn_local;
@@ -22,7 +22,7 @@ impl TrackerDataState {
 }
 
 #[hook]
-pub fn use_tracker_rates() -> UseStateHandle<TrackerDataState> {
+pub fn use_tracker_rates(region: Region) -> UseStateHandle<TrackerDataState> {
     let state = use_state(|| TrackerDataState::Loading);
     let trigger = use_state(|| 0u32); // Polling trigger
 
@@ -30,13 +30,17 @@ pub fn use_tracker_rates() -> UseStateHandle<TrackerDataState> {
         let state = state.clone();
         let trigger_value = *trigger;
 
-        use_effect_with(trigger_value, move |_| {
+        use_effect_with((trigger_value, region), move |(_, region)| {
             let state = state.clone();
             let trigger = trigger.clone();
+            let region = *region;
+
+            // Reset to loading when region changes
+            state.set(TrackerDataState::Loading);
 
             spawn_local(async move {
-                // Fetch data
-                match fetch_tracker_rates().await {
+                // Fetch data for the specified region
+                match fetch_tracker_rates_for_region(region).await {
                     Ok(rates) => state.set(TrackerDataState::Loaded(Rc::new(rates))),
                     Err(e) => state.set(TrackerDataState::Error(e.to_string())),
                 }
