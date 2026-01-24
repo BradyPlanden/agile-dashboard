@@ -666,6 +666,10 @@ body {
         font-size: 0.8rem;
         padding: 6px 8px;
         padding-right: 24px;
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .theme-toggle {
@@ -686,6 +690,10 @@ body {
         grid-template-columns: 1fr;
     }
 
+    .tracker-grid {
+        grid-template-columns: 1fr;
+    }
+
     .carbon-item-current,
     .carbon-item-next,
     .carbon-item-change {
@@ -699,5 +707,22 @@ body {
 
     .carbon-value {
         font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-container {
+        padding: 8px;
+    }
+
+    .region-selector {
+        max-width: 120px;
+        font-size: 0.75rem;
+        right: 45px;
+    }
+
+    .cheapest-period {
+        font-size: 0.85rem;
+        padding: 6px 10px;
     }
 }
