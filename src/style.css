@@ -127,7 +127,7 @@ body {
     margin: 0 auto;
     padding: 20px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, max-width 0.2s ease;
 }
 
 .app-header {
@@ -138,7 +138,8 @@ body {
 
 .app-header h1 {
     color: var(--color-text-primary);
-    font-size: 2.5rem;
+    /* Fluid font sizing - scales from 1.5rem to 3.2rem across all viewports */
+    font-size: clamp(1.5rem, 1rem + 2vw, 3.2rem);
     margin: 0;
     transition: color 0.2s ease;
 }
@@ -152,7 +153,8 @@ body {
     border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 10px 15px;
-    font-size: 1.2rem;
+    /* Fluid font sizing - scales from 1rem to 1.5rem */
+    font-size: clamp(1rem, 0.8rem + 0.4vw, 1.5rem);
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: var(--shadow-sm);
@@ -176,7 +178,8 @@ body {
     border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 8px 12px;
-    font-size: 0.9rem;
+    /* Fluid font sizing across all viewport sizes */
+    font-size: clamp(0.7rem, 0.4rem + 0.6vw, 1.1rem);
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: var(--shadow-sm);
@@ -188,6 +191,8 @@ body {
     background-repeat: no-repeat;
     background-position: right 10px center;
     padding-right: 30px;
+    /* Fluid max-width across all viewport sizes - scales from 90px to 240px */
+    max-width: clamp(90px, 6vw + 70px, 240px);
 }
 
 .region-selector:hover {
@@ -213,7 +218,8 @@ body {
     border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 10px 15px;
-    font-size: 1.2rem;
+    /* Fluid font sizing - scales from 1rem to 1.5rem */
+    font-size: clamp(1rem, 0.8rem + 0.4vw, 1.5rem);
     transition: all 0.2s ease;
     box-shadow: var(--shadow-sm);
     color: var(--color-text-primary);
@@ -222,18 +228,22 @@ body {
 .app-main {
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    /* Fluid gap - scales from 20px to 36px */
+    gap: clamp(20px, 1.5vw + 12px, 36px);
 }
 
 .app-main h2 {
     color: var(--color-text-primary);
     margin: 0 0 20px 0;
+    /* Fluid font sizing - scales from 1.3rem to 2rem */
+    font-size: clamp(1.3rem, 0.9rem + 0.6vw, 2rem);
     transition: color 0.2s ease;
 }
 
 .status-section, .chart-section, .data-section {
     background: var(--color-bg-primary);
-    padding: 25px;
+    /* Fluid padding - scales from 18px to 32px */
+    padding: clamp(18px, 1.5vw + 10px, 32px);
     border-radius: 12px;
     box-shadow: var(--shadow-md);
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
@@ -242,7 +252,8 @@ body {
 /* Banner section - compact card layout */
 .banner-section {
     background: var(--color-bg-primary);
-    padding: 15px 25px;  /* Less vertical padding for compact height */
+    /* Fluid padding - less vertical, scales horizontally */
+    padding: clamp(12px, 1vw + 8px, 20px) clamp(18px, 1.5vw + 10px, 32px);
     border-radius: 12px;
     box-shadow: var(--shadow-md);
     overflow: hidden;  /* Clip SVG to card bounds */
@@ -321,7 +332,8 @@ body {
 .data-summary {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    /* Fluid gap - scales from 15px to 24px */
+    gap: clamp(15px, 1vw + 10px, 24px);
 }
 
 /* Individual day card */
@@ -349,7 +361,8 @@ body {
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
+    /* Fluid gap - scales from 15px to 24px */
+    gap: clamp(15px, 1vw + 10px, 24px);
 }
 
 .summary-item {
@@ -371,7 +384,8 @@ body {
 
 .summary-value {
     margin: 0;
-    font-size: 1.5rem;
+    /* Fluid font sizing - scales from 1.2rem to 1.8rem */
+    font-size: clamp(1.2rem, 0.9rem + 0.5vw, 1.8rem);
     font-weight: bold;
     color: var(--color-text-primary);
     transition: color 0.2s ease;
@@ -379,10 +393,10 @@ body {
 
 .tracker-section {
     background: var(--color-bg-primary);
-    padding: 25px;
+    /* Fluid padding - scales from 18px to 32px */
+    padding: clamp(18px, 1.5vw + 10px, 32px);
     border-radius: 12px;
     box-shadow: var(--shadow-md);
-    margin-bottom: 30px;
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -393,7 +407,8 @@ body {
 .tracker-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
+    /* Fluid gap - scales from 15px to 24px */
+    gap: clamp(15px, 1vw + 10px, 24px);
 }
 
 .tracker-item {
@@ -415,7 +430,8 @@ body {
 
 .tracker-value {
     margin: 0;
-    font-size: 1.5rem;
+    /* Fluid font sizing - scales from 1.2rem to 1.8rem */
+    font-size: clamp(1.2rem, 0.9rem + 0.5vw, 1.8rem);
     font-weight: bold;
     color: var(--color-text-primary);
     transition: color 0.2s ease;
@@ -441,7 +457,8 @@ body {
 
 .tracker-value-tomorrow {
     margin: 0;
-    font-size: 1.5rem;
+    /* Fluid font sizing - scales from 1.2rem to 1.8rem */
+    font-size: clamp(1.2rem, 0.9rem + 0.5vw, 1.8rem);
     font-weight: bold;
     color: var(--color-text-primary);
     transition: color 0.2s ease;
@@ -462,72 +479,74 @@ body {
 /* Carbon Intensity Section */
 .carbon-section {
     background: var(--color-bg-primary);
-    padding: 25px;
+    /* Fluid padding - scales from 16px to 28px */
+    padding: clamp(16px, 1.3vw + 8px, 28px);
     border-radius: 12px;
     box-shadow: var(--shadow-md);
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .carbon-display {
-    margin-top: 10px;
+    margin-top: 5px;
 }
 
 .carbon-grid {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 20px;
+    /* Fluid gap - scales from 12px to 20px */
+    gap: clamp(12px, 0.8vw + 8px, 20px);
 }
 
 .carbon-item {
     text-align: center;
-    padding: 20px;
+    padding: 15px;
     background: var(--color-bg-secondary);
     border-radius: 8px;
     transition: background-color 0.2s ease;
 }
 
 .carbon-item h3 {
-    margin: 0 0 10px 0;
+    margin: 0 0 8px 0;
     color: var(--color-text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.85rem; /* Slightly smaller */
     text-transform: uppercase;
     letter-spacing: 1px;
     transition: color 0.2s ease;
 }
 
 .carbon-value {
-    margin: 0 0 5px 0;
-    font-size: 1.8rem;
+    margin: 0 0 3px 0;
+    font-size: 1.6rem;
     font-weight: bold;
     color: var(--color-text-primary);
     transition: color 0.2s ease;
 }
 
 .carbon-value-small {
-    margin: 10px 0 0 0;
-    font-size: 1.2rem;
+    margin: 8px 0 0 0;
+    font-size: 1.1rem;
     font-weight: 600;
     color: var(--color-text-primary);
     transition: color 0.2s ease;
 }
 
 .carbon-unit {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: normal;
     color: var(--color-text-secondary);
 }
 
 .carbon-source {
-    margin: 5px 0 0 0;
-    font-size: 0.8rem;
+    margin: 3px 0 0 0;
+    font-size: 0.75rem;
     color: var(--color-text-tertiary);
     font-style: italic;
     transition: color 0.2s ease;
 }
 
 .carbon-time {
-    margin: 10px 0 0 0;
-    font-size: 0.8rem;
+    margin: 8px 0 0 0;
+    font-size: 0.75rem;
     color: var(--color-text-tertiary);
     transition: color 0.2s ease;
 }
@@ -537,7 +556,7 @@ body {
 }
 
 .carbon-item-current .carbon-value {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
 }
 
 .carbon-item-next {
@@ -545,7 +564,7 @@ body {
 }
 
 .carbon-item-next .carbon-value {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
 }
 
 .carbon-item-change {
@@ -559,19 +578,19 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 1.5rem;
+    gap: 0.4rem;
+    font-size: 1.4rem;
     font-weight: 600;
-    padding: 15px 0;
+    padding: 10px 0;
 }
 
 .carbon-change-icon {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     line-height: 1;
 }
 
 .carbon-change-value {
-    font-size: 1rem;
+    font-size: 0.95rem;
     line-height: 1.2;
 }
 
@@ -592,7 +611,7 @@ body {
     display: inline-block;
     padding: 12px 24px;
     border-radius: 8px;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: bold;
     color: white;
     margin: 10px 0;
@@ -649,27 +668,153 @@ body {
     color: #9ca3af;
 }
 
-@media (max-width: 768px) {
+/* Large desktop (>= 1400px) - Scale container and elements */
+@media (min-width: 1400px) {
     .app-container {
-        padding: 10px;
+        max-width: 1400px;
+        padding: 24px;
     }
 
     .app-header h1 {
-        font-size: 1.5rem;
-        padding-top: 50px;
+        font-size: 2.7rem;
     }
 
     .region-selector {
-        position: absolute;
+        font-size: clamp(0.85rem, 0.5rem + 0.5vw, 1rem);
+        max-width: clamp(140px, 10vw + 50px, 200px);
+        padding: 9px 14px;
+        padding-right: 32px;
+    }
+
+    .cheapest-period {
+        font-size: 1.3rem;
+        padding: 11px 16px;
+    }
+
+    .theme-toggle {
+        font-size: 1.3rem;
+        padding: 11px 16px;
+    }
+}
+
+/* Extra large desktop (>= 1600px) - Continue scaling */
+@media (min-width: 1600px) {
+    .app-container {
+        max-width: 1600px;
+        padding: 28px;
+    }
+
+    .app-header h1 {
+        font-size: 3rem;
+    }
+
+    .region-selector {
+        font-size: clamp(0.9rem, 0.5rem + 0.5vw, 1.1rem);
+        max-width: clamp(160px, 11vw + 50px, 220px);
+        padding: 10px 16px;
+        padding-right: 34px;
+    }
+
+    .cheapest-period {
+        font-size: 1.4rem;
+        padding: 12px 18px;
+    }
+
+    .theme-toggle {
+        font-size: 1.4rem;
+        padding: 12px 18px;
+    }
+}
+
+/* Ultra wide (>= 1920px) - Maximum comfortable reading width */
+@media (min-width: 1920px) {
+    .app-container {
+        max-width: 90%; /* Cap at 90% for ultra-wide monitors */
+        padding: 32px;
+    }
+
+    .app-header h1 {
+        font-size: 3.2rem;
+    }
+
+    .region-selector {
+        font-size: 1.1rem;
+        max-width: 240px;
+        padding: 12px 18px;
+        padding-right: 36px;
+    }
+
+    .cheapest-period {
+        font-size: 1.5rem;
+        padding: 14px 20px;
+    }
+
+    .theme-toggle {
+        font-size: 1.5rem;
+        padding: 14px 20px;
+    }
+}
+
+/* Large tablet / small desktop (< 1100px) */
+@media (max-width: 1100px) {
+    .app-header {
+        min-height: 90px;
+    }
+
+    .app-header h1 {
+        font-size: 1.7rem;
+        padding-top: 50px;
+        padding-left: 140px;
+        padding-right: 140px;
+    }
+
+    .region-selector {
         top: 0;
         right: 50px;
-        font-size: 0.8rem;
+        max-width: clamp(95px, 8vw + 35px, 120px);
         padding: 6px 8px;
         padding-right: 24px;
-        max-width: 140px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+    }
+
+    .cheapest-period {
+        top: 0; /* Same row as other controls */
+        left: 0;
+        font-size: 0.9rem;
+        padding: 6px 10px;
+        max-width: 120px; /* Limit width */
+    }
+
+    .theme-toggle {
+        top: 0;
+        right: 0;
+    }
+}
+
+/* Tablet and below (< 768px) - 2-3 column layouts with optimized spacing */
+@media (max-width: 768px) {
+    .app-container {
+        padding: 12px;
+    }
+
+    .app-header {
+        margin-bottom: 30px;
+        min-height: 70px;
+    }
+
+    .app-header h1 {
+        font-size: 1.4rem;
+        padding-top: 42px;
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+
+    .region-selector {
+        top: 0;
+        right: 50px;
+        /* Fluid sizing continues, with tighter constraints */
+        max-width: clamp(85px, 10vw + 20px, 105px);
+        padding: 6px 8px;
+        padding-right: 24px;
     }
 
     .theme-toggle {
@@ -678,26 +823,50 @@ body {
     }
 
     .cheapest-period {
-        font-size: 1rem;
-        padding: 8px 12px;
+        top: 0; /* Keep in top row */
+        left: 0;
+        font-size: 0.85rem;
+        padding: 6px 10px;
+        max-width: 110px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
+    /* Sections with reduced padding */
+    .status-section, .chart-section, .data-section,
+    .banner-section, .tracker-section, .carbon-section {
+        padding: 18px;
+    }
+
+    .day-summary-card {
+        padding: 16px;
+    }
+
+    /* 2 columns for most grids */
     .summary-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .carbon-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
     }
 
     .tracker-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
     }
 
+    .carbon-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px; /* Tighter for compact design */
+    }
+
+    /* Carbon items span adjustments */
     .carbon-item-current,
-    .carbon-item-next,
+    .carbon-item-next {
+        grid-column: span 1;
+    }
+
     .carbon-item-change {
-        grid-column: 1;
+        grid-column: span 2;
     }
 
     .carbon-item-current .carbon-value,
@@ -706,23 +875,245 @@ body {
     }
 
     .carbon-value {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
+    }
+
+    /* Reduce item padding */
+    .summary-item,
+    .tracker-item,
+    .tracker-item-tomorrow,
+    .carbon-item {
+        padding: 15px;
+    }
+
+    .carbon-item {
+        padding: 12px; /* Extra compact for carbon */
     }
 }
 
+/* Small tablet / large mobile (< 600px) - Maintain 2 columns, tighter spacing */
+@media (max-width: 600px) {
+    .app-container {
+        padding: 10px;
+    }
+
+    .app-header {
+        min-height: 60px;
+    }
+
+    .app-header h1 {
+        font-size: 1.2rem; /* Smaller to reduce vertical space */
+        padding-top: 38px; /* Adjusted for smaller controls */
+    }
+
+    .region-selector {
+        right: 45px;
+        font-size: 0.7rem;
+        padding: 5px 6px;
+        padding-right: 22px;
+        max-width: 90px;
+    }
+
+    .cheapest-period {
+        font-size: 0.8rem;
+        padding: 5px 8px;
+        max-width: 100px;
+    }
+
+    .theme-toggle {
+        padding: 6px 10px;
+        font-size: 0.9rem;
+    }
+
+    /* Further reduce section padding */
+    .status-section, .chart-section, .data-section,
+    .banner-section, .tracker-section, .carbon-section {
+        padding: 15px;
+    }
+
+    .day-summary-card {
+        padding: 14px;
+    }
+
+    /* Keep 2 columns but tighter gaps */
+    .summary-grid {
+        gap: 12px;
+    }
+
+    .tracker-grid {
+        gap: 12px;
+    }
+
+    .carbon-grid {
+        gap: 12px;
+    }
+
+    /* Compact item padding */
+    .summary-item,
+    .tracker-item,
+    .tracker-item-tomorrow,
+    .carbon-item {
+        padding: 12px;
+    }
+
+    .carbon-item {
+        padding: 10px; /* Extra compact */
+    }
+
+    /* Slightly smaller fonts */
+    .summary-value,
+    .tracker-value,
+    .tracker-value-tomorrow {
+        font-size: 1.3rem;
+    }
+
+    .carbon-item-current .carbon-value,
+    .carbon-item-next .carbon-value {
+        font-size: 1.6rem;
+    }
+
+    .carbon-value {
+        font-size: 1.3rem;
+    }
+
+    .carbon-value-small {
+        font-size: 1rem;
+    }
+
+    .carbon-change {
+        font-size: 1.2rem;
+        padding: 8px 0;
+    }
+
+    .carbon-change-icon {
+        font-size: 1.8rem;
+    }
+}
+
+/* Mobile (< 480px) - 2 columns, maximum space utilization */
 @media (max-width: 480px) {
     .app-container {
         padding: 8px;
     }
 
+    .app-header {
+        min-height: 55px;
+    }
+
+    .app-header h1 {
+        font-size: 1.1rem; /* Smaller title for mobile */
+        padding-top: 35px; /* Less padding to reduce clash */
+    }
+
     .region-selector {
-        max-width: 120px;
-        font-size: 0.75rem;
-        right: 45px;
+        max-width: 80px;
+        font-size: 0.65rem;
+        right: 42px;
+        padding: 4px 5px;
+        padding-right: 20px;
+    }
+
+    .theme-toggle {
+        padding: 5px 8px;
+        font-size: 0.85rem;
     }
 
     .cheapest-period {
+        font-size: 0.7rem;
+        padding: 4px 7px;
+        max-width: 90px;
+    }
+
+    /* Minimal section padding */
+    .status-section, .chart-section, .data-section,
+    .banner-section, .tracker-section, .carbon-section {
+        padding: 12px;
+    }
+
+    .day-summary-card {
+        padding: 12px;
+    }
+
+    .day-summary-card h2 {
+        font-size: 1.1rem;
+    }
+
+    /* Maintain 2 columns with minimal gaps */
+    .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .tracker-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .carbon-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    /* Minimal item padding */
+    .summary-item,
+    .tracker-item,
+    .tracker-item-tomorrow,
+    .carbon-item {
+        padding: 10px;
+    }
+
+    .carbon-item {
+        padding: 8px; /* Extra minimal for carbon */
+    }
+
+    /* Compact fonts */
+    .summary-item h3,
+    .tracker-item h3,
+    .tracker-item-tomorrow h3,
+    .carbon-item h3 {
+        font-size: 0.75rem;
+        margin-bottom: 6px;
+    }
+
+    .summary-value,
+    .tracker-value,
+    .tracker-value-tomorrow {
+        font-size: 1.2rem;
+    }
+
+    .carbon-item-current .carbon-value,
+    .carbon-item-next .carbon-value {
+        font-size: 1.4rem;
+    }
+
+    .carbon-value {
+        font-size: 1.2rem;
+    }
+
+    .carbon-value-small {
+        font-size: 0.95rem;
+    }
+
+    .carbon-change {
+        font-size: 1.1rem;
+        padding: 6px 0;
+    }
+
+    .carbon-change-icon {
+        font-size: 1.6rem;
+    }
+
+    .carbon-change-value {
         font-size: 0.85rem;
-        padding: 6px 10px;
+    }
+
+    .carbon-index-badge {
+        font-size: 0.9rem;
+        padding: 8px 16px;
+    }
+
+    .price-increase,
+    .price-decrease {
+        font-size: 1rem;
     }
 }
