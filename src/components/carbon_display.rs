@@ -50,12 +50,25 @@ pub fn carbon_display(props: &CarbonDisplayProps) -> Html {
         std::cmp::Ordering::Less => "↓",
         std::cmp::Ordering::Equal => "→",
     };
+    let change_text = match intensity_change.cmp(&0) {
+        std::cmp::Ordering::Greater => "Increasing",
+        std::cmp::Ordering::Less => "Decreasing",
+        std::cmp::Ordering::Equal => "Stable",
+    };
 
     html! {
-        <div class="carbon-display">
+        <div class="carbon-display" role="region" aria-label="Carbon intensity information">
             <div class="carbon-grid">
                 // Current period - prominent display
-                <div class="carbon-item carbon-item-current">
+                <div
+                    class="carbon-item carbon-item-current"
+                    aria-label={format!(
+                        "Most recent carbon intensity: {} grams CO2 per kilowatt hour, rated {}. {}",
+                        latest_intensity,
+                        latest_index.label(),
+                        change_text
+                    )}
+                >
                     <h3>{"Most Recent"}</h3>
                     <p class="carbon-value">
                         {format!("{} ", latest_intensity)}
@@ -66,6 +79,7 @@ pub fn carbon_display(props: &CarbonDisplayProps) -> Html {
                     </div>
                     <p class="carbon-time">{latest_time_period}</p>
                     <p class="carbon-source">{latest_source}</p>
+                    <span class="sr-only">{change_text}</span>
                 </div>
 
                 // Next period - secondary display

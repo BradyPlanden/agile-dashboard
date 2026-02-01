@@ -24,9 +24,11 @@ pub fn theme_toggle() -> Html {
             class="theme-toggle"
             {onclick}
             aria-label={label}
+            aria-pressed={if theme_handle.effective_theme == Theme::Dark { "true" } else { "false" }}
             title={label}
         >
-            {icon}
+            <span aria-hidden="true">{icon}</span>
+            <span class="sr-only">{label}</span>
         </button>
     }
 }
