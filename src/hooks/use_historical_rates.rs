@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::rc::Rc;
 use yew::prelude::*;
 
@@ -35,22 +36,33 @@ pub fn use_historical_rates() -> UseStateHandle<HistoricalDataState> {
         use_effect_with(trigger_value, move |_| {
             let state = state.clone();
             let trigger = trigger;
+            let aborted = Rc::new(Cell::new(false));
+            let aborted_check = aborted.clone();
 
             spawn_local(async move {
                 // Fetch historical data
                 match fetch_historical_rates().await {
-                    Ok(rates) => state.set(HistoricalDataState::Loaded(Rc::new(rates))),
-                    Err(e) => state.set(HistoricalDataState::Error(e.to_string())),
+                    Ok(rates) if !aborted_check.get() => {
+                        state.set(HistoricalDataState::Loaded(Rc::new(rates)));
+                    }
+                    Err(e) if !aborted_check.get() => {
+                        state.set(HistoricalDataState::Error(e.to_string()));
+                    }
+                    _ => {} // Request was aborted, ignore result
                 }
 
                 // Schedule next poll if enabled
-                if crate::config::Config::ENABLE_AUTO_REFRESH {
+                if crate::config::Config::ENABLE_AUTO_REFRESH && !aborted_check.get() {
                     TimeoutFuture::new(crate::config::Config::POLLING_INTERVAL_MS).await;
-                    trigger.set(*trigger + 1); // Trigger next fetch
+                    if !aborted_check.get() {
+                        trigger.set(*trigger + 1); // Trigger next fetch
+                    }
                 }
             });
 
-            || () // Cleanup
+            move || {
+                aborted.set(true);
+            }
         });
     }
 

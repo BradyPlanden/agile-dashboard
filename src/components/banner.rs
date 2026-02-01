@@ -39,15 +39,15 @@ pub fn compute_means(data: &[Vec<f64>]) -> Vec<f64> {
 
 /// Generates SVG path data from values
 #[allow(clippy::cast_precision_loss)]
-fn build_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
+pub fn build_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
     if values.is_empty() {
         return String::new();
     }
 
     let min = values.iter().copied().fold(f64::INFINITY, f64::min);
     let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let range = if (max - min).abs() < f64::EPSILON {
-        1.0 // Avoid division by zero for flat lines
+    let range = if (max - min).abs() < 0.01 {
+        1.0 // Avoid division by zero for flat lines (threshold: 0.01p)
     } else {
         max - min
     };
@@ -56,7 +56,11 @@ fn build_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
         .iter()
         .enumerate()
         .map(|(i, &val)| {
-            let x = (i as f64 / (values.len() - 1) as f64) * width;
+            let x = if values.len() > 1 {
+                (i as f64 / (values.len() - 1) as f64) * width
+            } else {
+                width / 2.0 // Center single point
+            };
             let y = (1.0 - (val - min) / range).mul_add(2.0f64.mul_add(-padding, height), padding);
             (x, y)
         })
@@ -74,7 +78,7 @@ fn build_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
 
 /// Optional: Smooth path using Catmull-Rom to Bezier conversion
 #[allow(clippy::cast_precision_loss, clippy::suboptimal_flops)]
-fn build_smooth_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
+pub fn build_smooth_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
     use std::fmt::Write;
 
     if values.len() < 2 {
@@ -83,8 +87,8 @@ fn build_smooth_path(values: &[f64], width: f64, height: f64, padding: f64) -> S
 
     let min = values.iter().copied().fold(f64::INFINITY, f64::min);
     let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let range = if (max - min).abs() < f64::EPSILON {
-        1.0
+    let range = if (max - min).abs() < 0.01 {
+        1.0 // Avoid division by zero for flat lines (threshold: 0.01p)
     } else {
         max - min
     };
@@ -93,7 +97,11 @@ fn build_smooth_path(values: &[f64], width: f64, height: f64, padding: f64) -> S
         .iter()
         .enumerate()
         .map(|(i, &val)| {
-            let x = (i as f64 / (values.len() - 1) as f64) * width;
+            let x = if values.len() > 1 {
+                (i as f64 / (values.len() - 1) as f64) * width
+            } else {
+                width / 2.0 // Center single point
+            };
             let y = padding + (1.0 - (val - min) / range) * (height - 2.0 * padding);
             (x, y)
         })

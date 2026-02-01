@@ -463,4 +463,97 @@ mod tests {
         assert_eq!(current.unwrap(), 20.6745);
         assert_eq!(next_day.unwrap(), 22.3545);
     }
+
+    // ===== Banner Edge Case Tests =====
+
+    #[test]
+    fn test_compute_means_empty() {
+        use agile_dashboard::components::compute_means;
+
+        let empty: Vec<Vec<f64>> = vec![];
+        let result = compute_means(&empty);
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_banner_single_value() {
+        use agile_dashboard::components::build_path;
+
+        let values = vec![15.5];
+        let path = build_path(&values, 1000.0, 60.0, 4.0);
+        assert!(!path.is_empty());
+        assert!(!path.contains("NaN"));
+        assert!(!path.contains("inf"));
+    }
+
+    #[test]
+    fn test_banner_smooth_single_value() {
+        use agile_dashboard::components::build_smooth_path;
+
+        let values = vec![15.5];
+        let path = build_smooth_path(&values, 1000.0, 60.0, 4.0);
+        assert!(!path.is_empty());
+        assert!(!path.contains("NaN"));
+        assert!(!path.contains("inf"));
+    }
+
+    #[test]
+    fn test_banner_all_identical_values() {
+        use agile_dashboard::components::{build_path, build_smooth_path};
+
+        // All identical values (flat line)
+        let values = vec![15.5; 365];
+
+        let path = build_path(&values, 1000.0, 60.0, 4.0);
+        assert!(!path.is_empty());
+        assert!(!path.contains("NaN"));
+        assert!(!path.contains("inf"));
+
+        let smooth_path = build_smooth_path(&values, 1000.0, 60.0, 4.0);
+        assert!(!smooth_path.is_empty());
+        assert!(!smooth_path.contains("NaN"));
+        assert!(!smooth_path.contains("inf"));
+    }
+
+    #[test]
+    fn test_banner_two_values() {
+        use agile_dashboard::components::{build_path, build_smooth_path};
+
+        let values = vec![10.0, 20.0];
+
+        let path = build_path(&values, 1000.0, 60.0, 4.0);
+        assert!(!path.is_empty());
+        assert!(!path.contains("NaN"));
+        assert!(path.starts_with("M "));
+        assert!(path.contains("L "));
+
+        let smooth_path = build_smooth_path(&values, 1000.0, 60.0, 4.0);
+        assert!(!smooth_path.is_empty());
+        assert!(!smooth_path.contains("NaN"));
+    }
+
+    #[test]
+    fn test_banner_empty_values() {
+        use agile_dashboard::components::{build_path, build_smooth_path};
+
+        let values: Vec<f64> = vec![];
+
+        let path = build_path(&values, 1000.0, 60.0, 4.0);
+        assert_eq!(path, String::new());
+
+        let smooth_path = build_smooth_path(&values, 1000.0, 60.0, 4.0);
+        assert_eq!(smooth_path, String::new());
+    }
+
+    #[test]
+    fn test_banner_nearly_identical_values() {
+        use agile_dashboard::components::build_path;
+
+        // Values within 0.01p threshold (should trigger flat line handling)
+        let values = vec![15.5, 15.501, 15.502, 15.499];
+        let path = build_path(&values, 1000.0, 60.0, 4.0);
+        assert!(!path.is_empty());
+        assert!(!path.contains("NaN"));
+        assert!(!path.contains("inf"));
+    }
 }

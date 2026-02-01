@@ -35,55 +35,65 @@ impl CarbonIntensityClient {
     pub async fn fetch_current_and_next_intensity(&self) -> Result<CarbonIntensity, AppError> {
         use chrono::Utc;
 
-        let url = format!("{}/intensity/date", self.base_url);
+        crate::services::retry::retry_with_backoff(
+            || async {
+                let url = format!("{}/intensity/date", self.base_url);
 
-        let response = self
-            .http
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| self.classify_error(e))?;
+                let response = self
+                    .http
+                    .get(&url)
+                    .send()
+                    .await
+                    .map_err(|e| self.classify_error(e))?;
 
-        let status = response.status();
-        if !status.is_success() {
-            let body = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "<failed to read error body>".to_string());
-            return Err(self.error_for_status(status, &body));
-        }
+                let status = response.status();
+                if !status.is_success() {
+                    let body = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "<failed to read error body>".to_string());
+                    return Err(self.error_for_status(status, &body));
+                }
 
-        let api_response: CarbonApiResponse = response
-            .json()
-            .await
-            .map_err(|e| AppError::ApiError(format!("Failed to parse response: {e}")))?;
+                let api_response: CarbonApiResponse = response
+                    .json()
+                    .await
+                    .map_err(|e| AppError::ApiError(format!("Failed to parse response: {e}")))?;
 
-        let now = Utc::now();
+                let now = Utc::now();
 
-        // Find most recent period with actual data
-        let latest_intensity = api_response
-            .data
-            .iter()
-            .filter(|period| period.to <= now) // Only periods that have ended
-            .filter(|period| period.intensity.actual.is_some()) // Must have actual data
-            .max_by_key(|period| period.to) // Get the most recent one
-            .ok_or_else(|| {
-                AppError::DataError("No period with actual data found in response".to_string())
-            })?
-            .clone();
+                // Find most recent period with actual data
+                let latest_intensity = api_response
+                    .data
+                    .iter()
+                    .filter(|period| period.to <= now) // Only periods that have ended
+                    .filter(|period| period.intensity.actual.is_some()) // Must have actual data
+                    .max_by_key(|period| period.to) // Get the most recent one
+                    .ok_or_else(|| {
+                        AppError::DataError(
+                            "No period with actual data found in response".to_string(),
+                        )
+                    })?
+                    .clone();
 
-        // Find the current time
-        let next = api_response
-            .data
-            .iter()
-            .find(|period| {
-                // Period that follows now, or period containing now
-                period.from > now || now < period.to
-            })
-            .ok_or_else(|| AppError::DataError("No next period found in response".to_string()))?
-            .clone();
+                // Find the current time
+                let next = api_response
+                    .data
+                    .iter()
+                    .find(|period| {
+                        // Period that follows now, or period containing now
+                        period.from > now || now < period.to
+                    })
+                    .ok_or_else(|| {
+                        AppError::DataError("No next period found in response".to_string())
+                    })?
+                    .clone();
 
-        Ok(CarbonIntensity::new(latest_intensity, next))
+                Ok(CarbonIntensity::new(latest_intensity, next))
+            },
+            crate::config::Config::MAX_RETRY_ATTEMPTS,
+        )
+        .await
     }
 
     /// Converts a reqwest error into an appropriate `AppError`
