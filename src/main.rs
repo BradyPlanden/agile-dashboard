@@ -5,6 +5,7 @@ mod config;
 mod hooks;
 mod models;
 mod services;
+mod utils;
 
 use components::chart::Chart;
 use components::status::Status;

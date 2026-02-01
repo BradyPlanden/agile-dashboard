@@ -1,3 +1,4 @@
+use crate::utils::debounce::create_debounced_resize_listener;
 use charming::{
     Chart as CharmingChart,
     component::{Axis, Grid, Title, VisualMap, VisualMapPiece},
@@ -8,7 +9,6 @@ use charming::{
     renderer::WasmRenderer,
     series::Bar,
 };
-use gloo::events::EventListener;
 use std::rc::Rc;
 use web_sys::HtmlElement;
 use yew::prelude::*;
@@ -31,18 +31,23 @@ pub fn chart(props: &ChartProps) -> Html {
     {
         let container_ref = container_ref.clone();
         let dark_mode = props.dark_mode;
+        let series_data_for_effect = series_data.clone();
 
         use_effect_with(
-            (series_data, container_ref, dark_mode),
+            (series_data_for_effect, container_ref, dark_mode),
             |(series_data, container_ref, dark_mode)| {
                 let listener = container_ref.cast::<HtmlElement>().map(|container| {
                     render_chart(&container, series_data, *dark_mode);
 
                     let series_data = series_data.clone();
                     let dark_mode = *dark_mode;
-                    EventListener::new(&web_sys::window().unwrap(), "resize", move |_| {
-                        render_chart(&container, &series_data, dark_mode);
-                    })
+                    let container = container.clone();
+                    create_debounced_resize_listener(
+                        move || {
+                            render_chart(&container, &series_data, dark_mode);
+                        },
+                        150,
+                    )
                 });
 
                 move || drop(listener)
@@ -50,9 +55,29 @@ pub fn chart(props: &ChartProps) -> Html {
         );
     }
 
+    // Calculate min/max for accessibility description
+    let (min_price, max_price) = match &*series_data {
+        Ok((_, y_data)) if !y_data.is_empty() => {
+            let min = y_data.iter().copied().fold(f64::INFINITY, f64::min);
+            let max = y_data.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            (min, max)
+        }
+        _ => (0.0, 0.0),
+    };
+
     html! {
         <div class="chart-container" ref={container_ref}>
-            <div id={CHART_ID} />
+            <div
+                id={CHART_ID}
+                role="img"
+                aria-label="Energy price chart showing half-hourly electricity rates"
+            />
+            <div class="sr-only">
+                {format!(
+                    "Energy prices ranging from {:.2}p to {:.2}p per kilowatt hour",
+                    min_price, max_price
+                )}
+            </div>
         </div>
     }
 }

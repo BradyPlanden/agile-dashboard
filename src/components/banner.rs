@@ -1,4 +1,4 @@
-use gloo::events::EventListener;
+use crate::utils::debounce::create_debounced_resize_listener;
 use web_sys::HtmlElement;
 use yew::prelude::*;
 
@@ -179,25 +179,35 @@ pub fn trace_banner(props: &TraceBannerProps) -> Html {
                     viewbox_width.set(width);
                 }
 
-                // Setup resize listener
+                // Setup debounced resize listener (150ms delay)
                 let viewbox_width = viewbox_width.clone();
-                EventListener::new(&web_sys::window().unwrap(), "resize", move |_| {
-                    let width = f64::from(container.client_width());
-                    if width > 0.0 {
-                        viewbox_width.set(width);
-                    }
-                })
+                let container = container.clone();
+                create_debounced_resize_listener(
+                    move || {
+                        let width = f64::from(container.client_width());
+                        if width > 0.0 {
+                            viewbox_width.set(width);
+                        }
+                    },
+                    150,
+                )
             });
 
             move || drop(listener)
         });
     }
 
-    let path_data = if props.smooth {
-        build_smooth_path(&props.values, *viewbox_width, viewbox_height, padding)
-    } else {
-        build_path(&props.values, *viewbox_width, viewbox_height, padding)
-    };
+    // Memoize path calculation to prevent recalculation on every render
+    let path_data = use_memo(
+        (props.values.clone(), *viewbox_width, props.smooth),
+        |(values, width, smooth)| {
+            if *smooth {
+                build_smooth_path(values, *width, viewbox_height, padding)
+            } else {
+                build_path(values, *width, viewbox_height, padding)
+            }
+        },
+    );
 
     let viewbox = format!("0 0 {} {}", *viewbox_width, viewbox_height);
     let style = format!("width: 100%; height: {}px; display: block;", props.height);
@@ -211,7 +221,7 @@ pub fn trace_banner(props: &TraceBannerProps) -> Html {
             class="trace-banner"
         >
             <path
-                d={path_data}
+                d={(*path_data).clone()}
                 fill="none"
                 stroke={props.color.clone()}
                 stroke-width={props.stroke_width.to_string()}
