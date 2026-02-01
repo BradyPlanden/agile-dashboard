@@ -5,14 +5,14 @@ use web_sys::wasm_bindgen::JsCast;
 use yew::prelude::*;
 
 /// Theme enum representing user's theme preference
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Theme {
     Light,
     Dark,
     Auto, // Follow system preference
 }
 
-/// Handle returned by use_theme hook
+/// Handle returned by `use_theme` hook
 #[derive(Clone, PartialEq)]
 pub struct ThemeHandle {
     pub theme: Theme,           // User's preference
@@ -46,8 +46,8 @@ pub fn use_theme() -> ThemeHandle {
 
     // Effect: Listen to system preference changes
     {
-        let system_preference = system_preference.clone();
-        use_effect_with((), move |_| {
+        let system_preference = system_preference;
+        use_effect_with((), move |()| {
             let listener = setup_media_query_listener(system_preference.setter());
             move || drop(listener)
         });
@@ -65,7 +65,7 @@ pub fn use_theme() -> ThemeHandle {
     // Toggle callback: switches between Light and Dark
     let toggle = {
         let theme = theme.clone();
-        Callback::from(move |_| {
+        Callback::from(move |()| {
             let new_theme = match *theme {
                 Theme::Dark => Theme::Light,
                 _ => Theme::Dark,
@@ -92,14 +92,13 @@ pub fn use_theme() -> ThemeHandle {
 fn detect_system_preference() -> Theme {
     web_sys::window()
         .and_then(|w| w.match_media("(prefers-color-scheme: dark)").ok().flatten())
-        .map(|mq| {
+        .map_or(Theme::Light, |mq| {
             if mq.matches() {
                 Theme::Dark
             } else {
                 Theme::Light
             }
         })
-        .unwrap_or(Theme::Light)
 }
 
 /// Apply theme to DOM by setting data-theme attribute on <html>
@@ -118,30 +117,29 @@ fn apply_theme_to_dom(theme: Theme) {
 
 /// Load theme preference from localStorage
 fn load_theme_preference() -> Option<Theme> {
-    match gloo_storage::LocalStorage::get("theme") {
-        Ok(theme) => Some(theme),
-        Err(_) => {
-            web_sys::console::warn_1(
-                &"localStorage unavailable or read failed, using default theme".into(),
-            );
-            None
-        }
+    if let Ok(theme) = gloo_storage::LocalStorage::get("theme") {
+        Some(theme)
+    } else {
+        web_sys::console::warn_1(
+            &"localStorage unavailable or read failed, using default theme".into(),
+        );
+        None
     }
 }
 
 /// Save theme preference to localStorage
 fn save_theme_preference(theme: Theme) {
     if let Err(e) = gloo_storage::LocalStorage::set("theme", theme) {
-        web_sys::console::warn_1(&format!("Failed to save theme: {:?}", e).into());
+        web_sys::console::warn_1(&format!("Failed to save theme: {e:?}").into());
     }
 }
 
-/// Setup MediaQueryList event listener for system preference changes
+/// Setup `MediaQueryList` event listener for system preference changes
 fn setup_media_query_listener(setter: UseStateSetter<Theme>) -> Option<EventListener> {
     web_sys::window()
         .and_then(|w| w.match_media("(prefers-color-scheme: dark)").ok().flatten())
         .map(|mq| {
-            let target = mq.clone().dyn_into::<web_sys::EventTarget>().unwrap();
+            let target = mq.dyn_into::<web_sys::EventTarget>().unwrap();
             EventListener::new(&target, "change", move |_event| {
                 setter.set(detect_system_preference());
             })

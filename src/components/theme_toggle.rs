@@ -15,7 +15,7 @@ pub fn theme_toggle() -> Html {
     };
 
     let onclick = {
-        let toggle = theme_handle.toggle.clone();
+        let toggle = theme_handle.toggle;
         Callback::from(move |_| toggle.emit(()))
     };
 

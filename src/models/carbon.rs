@@ -16,41 +16,41 @@ pub enum IntensityIndex {
 
 impl IntensityIndex {
     /// Returns CSS class name for color coding
-    pub fn css_class(&self) -> &'static str {
+    pub const fn css_class(&self) -> &'static str {
         match self {
-            IntensityIndex::VeryLow => "intensity-very-low",
-            IntensityIndex::Low => "intensity-low",
-            IntensityIndex::Moderate => "intensity-moderate",
-            IntensityIndex::High => "intensity-high",
-            IntensityIndex::VeryHigh => "intensity-very-high",
+            Self::VeryLow => "intensity-very-low",
+            Self::Low => "intensity-low",
+            Self::Moderate => "intensity-moderate",
+            Self::High => "intensity-high",
+            Self::VeryHigh => "intensity-very-high",
         }
     }
 
     /// Returns human-readable label
-    pub fn label(&self) -> &'static str {
+    pub const fn label(&self) -> &'static str {
         match self {
-            IntensityIndex::VeryLow => "Very Low",
-            IntensityIndex::Low => "Low",
-            IntensityIndex::Moderate => "Moderate",
-            IntensityIndex::High => "High",
-            IntensityIndex::VeryHigh => "Very High",
+            Self::VeryLow => "Very Low",
+            Self::Low => "Low",
+            Self::Moderate => "Moderate",
+            Self::High => "High",
+            Self::VeryHigh => "Very High",
         }
     }
 
     /// Returns color for display (hex code)
-    pub fn color(&self) -> &'static str {
+    pub const fn color(&self) -> &'static str {
         match self {
-            IntensityIndex::VeryLow => "#059669",  // dark green
-            IntensityIndex::Low => "#10b981",      // light green
-            IntensityIndex::Moderate => "#f59e0b", // yellow/amber
-            IntensityIndex::High => "#f97316",     // orange
-            IntensityIndex::VeryHigh => "#dc2626", // red
+            Self::VeryLow => "#059669",  // dark green
+            Self::Low => "#10b981",      // light green
+            Self::Moderate => "#f59e0b", // yellow/amber
+            Self::High => "#f97316",     // orange
+            Self::VeryHigh => "#dc2626", // red
         }
     }
 }
 
 /// Intensity data for a specific time period
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Intensity {
     /// Forecasted carbon intensity (gCO2/kWh)
     pub forecast: u32,
@@ -64,7 +64,7 @@ pub struct Intensity {
 }
 
 /// Carbon intensity data point
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CarbonIntensityData {
     #[serde(deserialize_with = "deserialize_flexible_datetime")]
     pub from: DateTime<Utc>,
@@ -103,8 +103,7 @@ where
     }
 
     Err(serde::de::Error::custom(format!(
-        "Failed to parse datetime '{}'",
-        s
+        "Failed to parse datetime '{s}'"
     )))
 }
 
@@ -115,20 +114,20 @@ impl CarbonIntensityData {
     }
 
     /// Check if actual data is available
-    pub fn has_actual(&self) -> bool {
+    pub const fn has_actual(&self) -> bool {
         self.intensity.actual.is_some()
     }
 }
 
 /// Container for current and next period carbon intensity data
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CarbonIntensity {
     pub latest_intensity: CarbonIntensityData,
     pub next: CarbonIntensityData,
 }
 
 impl CarbonIntensity {
-    pub fn new(latest_intensity: CarbonIntensityData, next: CarbonIntensityData) -> Self {
+    pub const fn new(latest_intensity: CarbonIntensityData, next: CarbonIntensityData) -> Self {
         Self {
             latest_intensity,
             next,
@@ -141,37 +140,37 @@ impl CarbonIntensity {
     }
 
     /// Returns the forecast intensity for the next period
-    pub fn next_intensity(&self) -> u32 {
+    pub const fn next_intensity(&self) -> u32 {
         self.next.intensity.forecast
     }
 
     /// Returns the intensity index for the current period
-    pub fn latest_index(&self) -> IntensityIndex {
+    pub const fn latest_index(&self) -> IntensityIndex {
         self.latest_intensity.intensity.index
     }
 
     /// Returns the intensity index for the next period
-    pub fn next_index(&self) -> IntensityIndex {
+    pub const fn next_index(&self) -> IntensityIndex {
         self.next.intensity.index
     }
 
     /// Returns the time range (from, to) for the current period
-    pub fn latest_period(&self) -> (DateTime<Utc>, DateTime<Utc>) {
+    pub const fn latest_period(&self) -> (DateTime<Utc>, DateTime<Utc>) {
         (self.latest_intensity.from, self.latest_intensity.to)
     }
 
     /// Returns the time range (from, to) for the next period
-    pub fn next_period(&self) -> (DateTime<Utc>, DateTime<Utc>) {
+    pub const fn next_period(&self) -> (DateTime<Utc>, DateTime<Utc>) {
         (self.next.from, self.next.to)
     }
 
     /// Returns the change in intensity between current and next period
     pub fn intensity_change(&self) -> i32 {
-        self.next_intensity() as i32 - self.latest_intensity() as i32
+        self.next_intensity().cast_signed() - self.latest_intensity().cast_signed()
     }
 
     /// Returns whether the current period has actual data
-    pub fn has_actual(&self) -> bool {
+    pub const fn has_actual(&self) -> bool {
         self.latest_intensity.has_actual()
     }
 }

@@ -28,7 +28,7 @@ pub fn tracker_display(props: &TrackerDisplayProps) -> Html {
                     <p class="tracker-value">
                         {
                             if let Some(price) = current {
-                                format!("{:.2}p/kWh", price)
+                                format!("{price:.2}p/kWh")
                             } else {
                                 "N/A".to_string()
                             }

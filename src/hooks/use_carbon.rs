@@ -13,9 +13,9 @@ pub enum CarbonDataState {
 }
 
 impl CarbonDataState {
-    pub fn data(&self) -> Option<&Rc<CarbonIntensity>> {
+    pub const fn data(&self) -> Option<&Rc<CarbonIntensity>> {
         match self {
-            CarbonDataState::Loaded(data) => Some(data),
+            Self::Loaded(data) => Some(data),
             _ => None,
         }
     }
@@ -32,7 +32,7 @@ pub fn use_carbon_intensity() -> UseStateHandle<CarbonDataState> {
 
         use_effect_with(trigger_value, move |_| {
             let state = state.clone();
-            let trigger = trigger.clone();
+            let trigger = trigger;
 
             spawn_local(async move {
                 // Fetch carbon intensity data

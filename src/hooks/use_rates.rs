@@ -15,14 +15,14 @@ pub enum DataState {
 
 impl DataState {
     /// Returns true if the state is loading
-    pub fn is_loading(&self) -> bool {
-        matches!(self, DataState::Loading)
+    pub const fn is_loading(&self) -> bool {
+        matches!(self, Self::Loading)
     }
 
     /// Returns the data if it is loaded
-    pub fn data(&self) -> Option<&Rc<Rates>> {
+    pub const fn data(&self) -> Option<&Rc<Rates>> {
         match self {
-            DataState::Loaded(rates) => Some(rates),
+            Self::Loaded(rates) => Some(rates),
             _ => None,
         }
     }
@@ -39,7 +39,7 @@ pub fn use_rates(region: Region) -> UseStateHandle<DataState> {
 
         use_effect_with((trigger_value, region), move |(_, region)| {
             let state = state.clone();
-            let trigger = trigger.clone();
+            let trigger = trigger;
             let region = *region;
 
             // Reset to loading when region changes

@@ -15,9 +15,9 @@ pub enum HistoricalDataState {
 
 impl HistoricalDataState {
     /// Returns the data if it is loaded
-    pub fn data(&self) -> Option<&Rc<Rates>> {
+    pub const fn data(&self) -> Option<&Rc<Rates>> {
         match self {
-            HistoricalDataState::Loaded(rates) => Some(rates),
+            Self::Loaded(rates) => Some(rates),
             _ => None,
         }
     }
@@ -34,7 +34,7 @@ pub fn use_historical_rates() -> UseStateHandle<HistoricalDataState> {
 
         use_effect_with(trigger_value, move |_| {
             let state = state.clone();
-            let trigger = trigger.clone();
+            let trigger = trigger;
 
             spawn_local(async move {
                 // Fetch historical data

@@ -11,7 +11,7 @@ pub fn compute_means(data: &[Vec<f64>]) -> Vec<f64> {
     }
 
     // Find the maximum length to determine how many days we have
-    let max_len = data.iter().map(|v| v.len()).max().unwrap_or(0);
+    let max_len = data.iter().map(Vec::len).max().unwrap_or(0);
     if max_len == 0 {
         return vec![];
     }
@@ -28,19 +28,24 @@ pub fn compute_means(data: &[Vec<f64>]) -> Vec<f64> {
             });
 
             // Average only across slots that have data for this day
-            if count > 0 { sum / count as f64 } else { 0.0 }
+            if count > 0 {
+                sum / f64::from(count)
+            } else {
+                0.0
+            }
         })
         .collect()
 }
 
 /// Generates SVG path data from values
+#[allow(clippy::cast_precision_loss)]
 fn build_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
     if values.is_empty() {
         return String::new();
     }
 
-    let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
-    let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+    let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let range = if (max - min).abs() < f64::EPSILON {
         1.0 // Avoid division by zero for flat lines
     } else {
@@ -52,7 +57,7 @@ fn build_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
         .enumerate()
         .map(|(i, &val)| {
             let x = (i as f64 / (values.len() - 1) as f64) * width;
-            let y = padding + (1.0 - (val - min) / range) * (height - 2.0 * padding);
+            let y = (1.0 - (val - min) / range).mul_add(2.0f64.mul_add(-padding, height), padding);
             (x, y)
         })
         .collect();
@@ -60,20 +65,24 @@ fn build_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
     // Build SVG path with line segments
     let mut path = format!("M {:.2},{:.2}", points[0].0, points[0].1);
     for (x, y) in points.iter().skip(1) {
-        path.push_str(&format!(" L {:.2},{:.2}", x, y));
+        use std::fmt::Write;
+        write!(path, " L {x:.2},{y:.2}").unwrap();
     }
 
     path
 }
 
 /// Optional: Smooth path using Catmull-Rom to Bezier conversion
+#[allow(clippy::cast_precision_loss, clippy::suboptimal_flops)]
 fn build_smooth_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
+    use std::fmt::Write;
+
     if values.len() < 2 {
         return build_path(values, width, height, padding);
     }
 
-    let min = values.iter().cloned().fold(f64::INFINITY, f64::min);
-    let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+    let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let range = if (max - min).abs() < f64::EPSILON {
         1.0
     } else {
@@ -110,10 +119,12 @@ fn build_smooth_path(values: &[f64], width: f64, height: f64, padding: f64) -> S
         let cp2x = p2.0 - (p3.0 - p1.0) / tension;
         let cp2y = p2.1 - (p3.1 - p1.1) / tension;
 
-        path.push_str(&format!(
-            " C {:.2},{:.2} {:.2},{:.2} {:.2},{:.2}",
-            cp1x, cp1y, cp2x, cp2y, p2.0, p2.1
-        ));
+        write!(
+            path,
+            " C {cp1x:.2},{cp1y:.2} {cp2x:.2},{cp2y:.2} {:.2},{:.2}",
+            p2.0, p2.1
+        )
+        .unwrap();
     }
 
     path
@@ -146,17 +157,16 @@ pub fn trace_banner(props: &TraceBannerProps) -> Html {
     let container_ref = use_node_ref();
     let viewbox_width = use_state(|| 1000.0);
 
-    let viewbox_height = props.height as f64;
+    let viewbox_height = f64::from(props.height);
     let padding = 4.0;
 
     {
-        let container_ref = container_ref.clone();
         let viewbox_width = viewbox_width.clone();
 
         use_effect_with(container_ref.clone(), move |container_ref| {
             let listener = container_ref.cast::<HtmlElement>().map(|container| {
                 // Measure initial width
-                let width = container.client_width() as f64;
+                let width = f64::from(container.client_width());
                 if width > 0.0 {
                     viewbox_width.set(width);
                 }
@@ -164,7 +174,7 @@ pub fn trace_banner(props: &TraceBannerProps) -> Html {
                 // Setup resize listener
                 let viewbox_width = viewbox_width.clone();
                 EventListener::new(&web_sys::window().unwrap(), "resize", move |_| {
-                    let width = container.client_width() as f64;
+                    let width = f64::from(container.client_width());
                     if width > 0.0 {
                         viewbox_width.set(width);
                     }

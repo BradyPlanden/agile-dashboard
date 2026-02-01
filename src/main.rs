@@ -95,6 +95,13 @@ fn app() -> Html {
                         }
                     }
 
+                    // Chart
+                    <section class="chart-section">
+                        <h2>{"Energy Price Distribution"}</h2>
+                        <Chart rates={rates.clone()} dark_mode={theme_handle.effective_theme == Theme::Dark} />
+                    </section>
+
+                    // Carbon tracking
                     {
                         match &*carbon_state {
                             CarbonDataState::Loading => html! {
@@ -117,11 +124,6 @@ fn app() -> Html {
                             },
                         }
                     }
-
-                    <section class="chart-section">
-                        <h2>{"Energy Price Distribution"}</h2>
-                        <Chart rates={rates.clone()} dark_mode={theme_handle.effective_theme == Theme::Dark} />
-                    </section>
                 }
                 <section class="status-section">
                     <h2>{"API Status"}</h2>

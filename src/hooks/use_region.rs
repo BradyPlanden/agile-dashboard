@@ -3,7 +3,7 @@ use yew::prelude::*;
 
 use crate::services::api::Region;
 
-/// Handle returned by use_region hook
+/// Handle returned by `use_region` hook
 #[derive(Clone, PartialEq)]
 pub struct RegionHandle {
     pub region: Region,
@@ -39,15 +39,12 @@ pub fn use_region() -> RegionHandle {
 
 /// Load region preference from localStorage
 fn load_region_preference() -> Option<Region> {
-    match gloo_storage::LocalStorage::get("region") {
-        Ok(region) => Some(region),
-        Err(_) => None,
-    }
+    gloo_storage::LocalStorage::get("region").ok()
 }
 
 /// Save region preference to localStorage
 fn save_region_preference(region: Region) {
     if let Err(e) = gloo_storage::LocalStorage::set("region", region) {
-        web_sys::console::warn_1(&format!("Failed to save region: {:?}", e).into());
+        web_sys::console::warn_1(&format!("Failed to save region: {e:?}").into());
     }
 }

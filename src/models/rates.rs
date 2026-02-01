@@ -45,17 +45,17 @@ pub struct DailyStats {
 }
 
 impl Rates {
-    /// Creates a new Rates collection, sorting by valid_from time
+    /// Creates a new Rates collection, sorting by `valid_from` time
     pub fn new(mut data: Vec<Rate>) -> Self {
         data.sort_by_key(|r| r.valid_from);
         Self { data }
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.data.len()
     }
 
@@ -116,8 +116,8 @@ impl Rates {
         }
 
         let avg = sum / self.data.len() as f64;
-        let current = self.rate_at(time).map(|r| r.value_inc_vat).unwrap_or(0.0);
-        let next = self.next_rate(time).map(|r| r.value_inc_vat).unwrap_or(0.0);
+        let current = self.rate_at(time).map_or(0.0, |r| r.value_inc_vat);
+        let next = self.next_rate(time).map_or(0.0, |r| r.value_inc_vat);
 
         Ok(PriceStats {
             min,
@@ -249,14 +249,8 @@ impl Rates {
 
         let tomorrow_stats = self.stats_for_date(tomorrow);
 
-        let current = self
-            .rate_at(Utc::now())
-            .map(|r| r.value_inc_vat)
-            .unwrap_or(0.0);
-        let next = self
-            .next_rate(Utc::now())
-            .map(|r| r.value_inc_vat)
-            .unwrap_or(0.0);
+        let current = self.rate_at(Utc::now()).map_or(0.0, |r| r.value_inc_vat);
+        let next = self.next_rate(Utc::now()).map_or(0.0, |r| r.value_inc_vat);
 
         Ok(DailyStats {
             today: today_stats,
@@ -450,7 +444,7 @@ mod tests {
     fn test_stats_for_date_no_data() {
         use chrono::NaiveDate;
 
-        let yesterday = NaiveDate::from_ymd_opt(2024, 1, 14).unwrap();
+        let _yesterday = NaiveDate::from_ymd_opt(2024, 1, 14).unwrap();
         let today = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
 
         // Create rates for yesterday only
@@ -467,7 +461,7 @@ mod tests {
 
     #[test]
     fn test_daily_stats_with_tomorrow() {
-        use chrono::{Duration, NaiveDate};
+        use chrono::Duration;
 
         let today = Utc::now().date_naive();
         let tomorrow = today + Duration::days(1);
@@ -497,8 +491,6 @@ mod tests {
 
     #[test]
     fn test_daily_stats_without_tomorrow() {
-        use chrono::NaiveDate;
-
         let today = Utc::now().date_naive();
 
         // Create rates for today only
@@ -519,7 +511,7 @@ mod tests {
     fn test_next_price_spanning_midnight() {
         use chrono::NaiveDate;
 
-        let today = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
+        let _today = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
 
         // Create rate valid until 23:30
         let rate_today = Rate {

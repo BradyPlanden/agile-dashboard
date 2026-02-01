@@ -40,19 +40,15 @@ pub fn carbon_display(props: &CarbonDisplayProps) -> Html {
 
     // Trend indicator
     let intensity_change = data.intensity_change();
-    let change_class = if intensity_change > 0 {
-        "carbon-change-increasing"
-    } else if intensity_change < 0 {
-        "carbon-change-decreasing"
-    } else {
-        "carbon-change-stable"
+    let change_class = match intensity_change.cmp(&0) {
+        std::cmp::Ordering::Greater => "carbon-change-increasing",
+        std::cmp::Ordering::Less => "carbon-change-decreasing",
+        std::cmp::Ordering::Equal => "carbon-change-stable",
     };
-    let change_icon = if intensity_change > 0 {
-        "↑"
-    } else if intensity_change < 0 {
-        "↓"
-    } else {
-        "→"
+    let change_icon = match intensity_change.cmp(&0) {
+        std::cmp::Ordering::Greater => "↑",
+        std::cmp::Ordering::Less => "↓",
+        std::cmp::Ordering::Equal => "→",
     };
 
     html! {
@@ -95,7 +91,7 @@ pub fn carbon_display(props: &CarbonDisplayProps) -> Html {
                             {if intensity_change == 0 {
                                 "No change".to_string()
                             } else {
-                                format!("{:+} gCO₂/kWh", intensity_change)
+                                format!("{intensity_change:+} gCO₂/kWh")
                             }}
                         </span>
                     </div>

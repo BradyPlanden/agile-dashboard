@@ -13,7 +13,7 @@ body {
 
 :root {
     /* Base colors - Light mode (default) */
-    --color-bg-primary: #ffffff;
+    --color-bg-primary: #fff;
     --color-bg-secondary: #f8f9fa;
     --color-bg-tertiary: #f3f3f3;
     --color-text-primary: #2c3e50;
@@ -22,8 +22,8 @@ body {
     --color-border: #dee2e6;
 
     /* Shadow variables */
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-sm: 0 2px 4px rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px rgb(0 0 0 / 0.1);
 
     /* Status colors */
     --color-status-loading: #007bff;
@@ -58,8 +58,8 @@ body {
     --color-border: #404040;
 
     /* Shadow variables - softer for dark mode */
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 2px 4px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 6px rgb(0 0 0 / 0.5);
 
     /* Status colors - adjusted for readability */
     --color-status-loading: #3b82f6;
@@ -96,8 +96,8 @@ body {
         --color-border: #404040;
 
         /* Shadow variables */
-        --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
-        --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.5);
+        --shadow-sm: 0 2px 4px rgb(0 0 0 / 0.3);
+        --shadow-md: 0 4px 6px rgb(0 0 0 / 0.5);
 
         /* Status colors */
         --color-status-loading: #3b82f6;
@@ -138,6 +138,7 @@ body {
 
 .app-header h1 {
     color: var(--color-text-primary);
+
     /* Fluid font sizing - scales from 1.5rem to 3.2rem across all viewports */
     font-size: clamp(1.5rem, 1rem + 2vw, 3.2rem);
     margin: 0;
@@ -153,6 +154,7 @@ body {
     border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 10px 15px;
+
     /* Fluid font sizing - scales from 1rem to 1.5rem */
     font-size: clamp(1rem, 0.8rem + 0.4vw, 1.5rem);
     cursor: pointer;
@@ -178,19 +180,19 @@ body {
     border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 8px 12px;
+
     /* Fluid font sizing across all viewport sizes */
     font-size: clamp(0.7rem, 0.4rem + 0.6vw, 1.1rem);
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: var(--shadow-sm);
     color: var(--color-text-primary);
-    -webkit-appearance: none;
-    -moz-appearance: none;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236c757d' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 10px center;
     padding-right: 30px;
+
     /* Fluid max-width across all viewport sizes - scales from 90px to 240px */
     max-width: clamp(90px, 6vw + 70px, 240px);
 }
@@ -202,7 +204,7 @@ body {
 .region-selector:focus {
     outline: none;
     border-color: var(--color-accent-blue);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 0 2px rgb(59 130 246 / 0.2);
 }
 
 [data-theme="dark"] .region-selector {
@@ -218,6 +220,7 @@ body {
     border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 10px 15px;
+
     /* Fluid font sizing - scales from 1rem to 1.5rem */
     font-size: clamp(1rem, 0.8rem + 0.4vw, 1.5rem);
     transition: all 0.2s ease;
@@ -228,13 +231,15 @@ body {
 .app-main {
     display: flex;
     flex-direction: column;
+
     /* Fluid gap - scales from 20px to 36px */
     gap: clamp(20px, 1.5vw + 12px, 36px);
 }
 
 .app-main h2 {
     color: var(--color-text-primary);
-    margin: 0 0 20px 0;
+    margin: 0 0 20px;
+
     /* Fluid font sizing - scales from 1.3rem to 2rem */
     font-size: clamp(1.3rem, 0.9rem + 0.6vw, 2rem);
     transition: color 0.2s ease;
@@ -242,6 +247,7 @@ body {
 
 .status-section, .chart-section, .data-section {
     background: var(--color-bg-primary);
+
     /* Fluid padding - scales from 18px to 32px */
     padding: clamp(18px, 1.5vw + 10px, 32px);
     border-radius: 12px;
@@ -252,6 +258,7 @@ body {
 /* Banner section - compact card layout */
 .banner-section {
     background: var(--color-bg-primary);
+
     /* Fluid padding - less vertical, scales horizontally */
     padding: clamp(12px, 1vw + 8px, 20px) clamp(18px, 1.5vw + 10px, 32px);
     border-radius: 12px;
@@ -332,6 +339,7 @@ body {
 .data-summary {
     display: flex;
     flex-direction: column;
+
     /* Fluid gap - scales from 15px to 24px */
     gap: clamp(15px, 1vw + 10px, 24px);
 }
@@ -346,7 +354,7 @@ body {
 }
 
 .day-summary-card h2 {
-    margin: 0 0 15px 0;
+    margin: 0 0 15px;
     color: var(--color-text-primary);
     font-size: 1.2rem;
     transition: color 0.2s ease;
@@ -361,6 +369,7 @@ body {
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+
     /* Fluid gap - scales from 15px to 24px */
     gap: clamp(15px, 1vw + 10px, 24px);
 }
@@ -374,7 +383,7 @@ body {
 }
 
 .summary-item h3 {
-    margin: 0 0 10px 0;
+    margin: 0 0 10px;
     color: var(--color-text-secondary);
     font-size: 0.9rem;
     text-transform: uppercase;
@@ -384,6 +393,7 @@ body {
 
 .summary-value {
     margin: 0;
+
     /* Fluid font sizing - scales from 1.2rem to 1.8rem */
     font-size: clamp(1.2rem, 0.9rem + 0.5vw, 1.8rem);
     font-weight: bold;
@@ -393,6 +403,7 @@ body {
 
 .tracker-section {
     background: var(--color-bg-primary);
+
     /* Fluid padding - scales from 18px to 32px */
     padding: clamp(18px, 1.5vw + 10px, 32px);
     border-radius: 12px;
@@ -407,6 +418,7 @@ body {
 .tracker-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+
     /* Fluid gap - scales from 15px to 24px */
     gap: clamp(15px, 1vw + 10px, 24px);
 }
@@ -420,7 +432,7 @@ body {
 }
 
 .tracker-item h3 {
-    margin: 0 0 10px 0;
+    margin: 0 0 10px;
     color: var(--color-text-secondary);
     font-size: 0.9rem;
     text-transform: uppercase;
@@ -430,6 +442,7 @@ body {
 
 .tracker-value {
     margin: 0;
+
     /* Fluid font sizing - scales from 1.2rem to 1.8rem */
     font-size: clamp(1.2rem, 0.9rem + 0.5vw, 1.8rem);
     font-weight: bold;
@@ -447,7 +460,7 @@ body {
 }
 
 .tracker-item-tomorrow h3 {
-    margin: 0 0 10px 0;
+    margin: 0 0 10px;
     color: var(--color-text-secondary);
     font-size: 0.9rem;
     text-transform: uppercase;
@@ -457,6 +470,7 @@ body {
 
 .tracker-value-tomorrow {
     margin: 0;
+
     /* Fluid font sizing - scales from 1.2rem to 1.8rem */
     font-size: clamp(1.2rem, 0.9rem + 0.5vw, 1.8rem);
     font-weight: bold;
@@ -479,6 +493,7 @@ body {
 /* Carbon Intensity Section */
 .carbon-section {
     background: var(--color-bg-primary);
+
     /* Fluid padding - scales from 16px to 28px */
     padding: clamp(16px, 1.3vw + 8px, 28px);
     border-radius: 12px;
@@ -493,6 +508,7 @@ body {
 .carbon-grid {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
+
     /* Fluid gap - scales from 12px to 20px */
     gap: clamp(12px, 0.8vw + 8px, 20px);
 }
@@ -506,7 +522,7 @@ body {
 }
 
 .carbon-item h3 {
-    margin: 0 0 8px 0;
+    margin: 0 0 8px;
     color: var(--color-text-secondary);
     font-size: 0.85rem; /* Slightly smaller */
     text-transform: uppercase;
@@ -515,7 +531,7 @@ body {
 }
 
 .carbon-value {
-    margin: 0 0 3px 0;
+    margin: 0 0 3px;
     font-size: 1.6rem;
     font-weight: bold;
     color: var(--color-text-primary);
@@ -523,7 +539,7 @@ body {
 }
 
 .carbon-value-small {
-    margin: 8px 0 0 0;
+    margin: 8px 0 0;
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--color-text-primary);
@@ -537,7 +553,7 @@ body {
 }
 
 .carbon-source {
-    margin: 3px 0 0 0;
+    margin: 3px 0 0;
     font-size: 0.75rem;
     color: var(--color-text-tertiary);
     font-style: italic;
@@ -545,7 +561,7 @@ body {
 }
 
 .carbon-time {
-    margin: 8px 0 0 0;
+    margin: 8px 0 0;
     font-size: 0.75rem;
     color: var(--color-text-tertiary);
     transition: color 0.2s ease;
@@ -617,13 +633,13 @@ body {
     margin: 10px 0;
     text-transform: uppercase;
     letter-spacing: 1px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.15);
     transition: transform 0.2s ease;
 }
 
 .carbon-index-badge:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 8px rgb(0 0 0 / 0.2);
 }
 
 /* Carbon intensity level colors */
@@ -649,11 +665,11 @@ body {
 
 /* Dark mode adjustments for carbon section */
 [data-theme="dark"] .carbon-index-badge {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.4);
 }
 
 [data-theme="dark"] .carbon-index-badge:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 4px 8px rgb(0 0 0 / 0.6);
 }
 
 [data-theme="dark"] .carbon-change-increasing {
@@ -669,7 +685,7 @@ body {
 }
 
 /* Large desktop (>= 1400px) - Scale container and elements */
-@media (min-width: 1400px) {
+@media (width >= 1400px) {
     .app-container {
         max-width: 1400px;
         padding: 24px;
@@ -698,7 +714,7 @@ body {
 }
 
 /* Extra large desktop (>= 1600px) - Continue scaling */
-@media (min-width: 1600px) {
+@media (width >= 1600px) {
     .app-container {
         max-width: 1600px;
         padding: 28px;
@@ -727,7 +743,7 @@ body {
 }
 
 /* Ultra wide (>= 1920px) - Maximum comfortable reading width */
-@media (min-width: 1920px) {
+@media (width >= 1920px) {
     .app-container {
         max-width: 90%; /* Cap at 90% for ultra-wide monitors */
         padding: 32px;
@@ -756,7 +772,7 @@ body {
 }
 
 /* Large tablet / small desktop (< 1100px) */
-@media (max-width: 1100px) {
+@media (width <= 1100px) {
     .app-header {
         min-height: 90px;
     }
@@ -791,7 +807,7 @@ body {
 }
 
 /* Tablet and below (< 768px) - 2-3 column layouts with optimized spacing */
-@media (max-width: 768px) {
+@media (width <= 768px) {
     .app-container {
         padding: 12px;
     }
@@ -811,6 +827,7 @@ body {
     .region-selector {
         top: 0;
         right: 50px;
+
         /* Fluid sizing continues, with tighter constraints */
         max-width: clamp(85px, 10vw + 20px, 105px);
         padding: 6px 8px;
@@ -892,7 +909,7 @@ body {
 }
 
 /* Small tablet / large mobile (< 600px) - Maintain 2 columns, tighter spacing */
-@media (max-width: 600px) {
+@media (width <= 600px) {
     .app-container {
         padding: 10px;
     }
@@ -991,7 +1008,7 @@ body {
 }
 
 /* Mobile (< 480px) - 2 columns, maximum space utilization */
-@media (max-width: 480px) {
+@media (width <= 480px) {
     .app-container {
         padding: 8px;
     }

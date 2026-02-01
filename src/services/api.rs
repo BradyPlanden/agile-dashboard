@@ -47,62 +47,62 @@ pub enum Region {
 
 impl Region {
     /// Returns the single-character code used in API URLs.
-    pub fn code(&self) -> &'static str {
+    pub const fn code(&self) -> &'static str {
         match self {
-            Region::A => "A",
-            Region::B => "B",
-            Region::C => "C",
-            Region::D => "D",
-            Region::E => "E",
-            Region::F => "F",
-            Region::G => "G",
-            Region::H => "H",
-            Region::J => "J",
-            Region::K => "K",
-            Region::L => "L",
-            Region::M => "M",
-            Region::N => "N",
-            Region::P => "P",
+            Self::A => "A",
+            Self::B => "B",
+            Self::C => "C",
+            Self::D => "D",
+            Self::E => "E",
+            Self::F => "F",
+            Self::G => "G",
+            Self::H => "H",
+            Self::J => "J",
+            Self::K => "K",
+            Self::L => "L",
+            Self::M => "M",
+            Self::N => "N",
+            Self::P => "P",
         }
     }
 
     /// Returns a human-readable description of the region.
-    pub fn description(&self) -> &'static str {
+    pub const fn description(&self) -> &'static str {
         match self {
-            Region::A => "Eastern England",
-            Region::B => "East Midlands",
-            Region::C => "London",
-            Region::D => "Merseyside and North Wales",
-            Region::E => "West Midlands",
-            Region::F => "North Eastern England",
-            Region::G => "North Western England",
-            Region::H => "Southern England",
-            Region::J => "South Eastern England",
-            Region::K => "Southern Wales",
-            Region::L => "South Western England",
-            Region::M => "Yorkshire",
-            Region::N => "Southern Scotland",
-            Region::P => "Northern Scotland",
+            Self::A => "Eastern England",
+            Self::B => "East Midlands",
+            Self::C => "London",
+            Self::D => "Merseyside and North Wales",
+            Self::E => "West Midlands",
+            Self::F => "North Eastern England",
+            Self::G => "North Western England",
+            Self::H => "Southern England",
+            Self::J => "South Eastern England",
+            Self::K => "Southern Wales",
+            Self::L => "South Western England",
+            Self::M => "Yorkshire",
+            Self::N => "Southern Scotland",
+            Self::P => "Northern Scotland",
         }
     }
 
     /// All available regions.
-    pub fn all() -> &'static [Region] {
+    pub const fn all() -> &'static [Self] {
         &[
-            Region::A,
-            Region::B,
-            Region::C,
-            Region::D,
-            Region::E,
-            Region::F,
-            Region::G,
-            Region::H,
-            Region::J,
-            Region::K,
-            Region::L,
-            Region::M,
-            Region::N,
-            Region::P,
+            Self::A,
+            Self::B,
+            Self::C,
+            Self::D,
+            Self::E,
+            Self::F,
+            Self::G,
+            Self::H,
+            Self::J,
+            Self::K,
+            Self::L,
+            Self::M,
+            Self::N,
+            Self::P,
         ]
     }
 }
@@ -118,20 +118,20 @@ impl std::str::FromStr for Region {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
-            "A" => Ok(Region::A),
-            "B" => Ok(Region::B),
-            "C" => Ok(Region::C),
-            "D" => Ok(Region::D),
-            "E" => Ok(Region::E),
-            "F" => Ok(Region::F),
-            "G" => Ok(Region::G),
-            "H" => Ok(Region::H),
-            "J" => Ok(Region::J),
-            "K" => Ok(Region::K),
-            "L" => Ok(Region::L),
-            "M" => Ok(Region::M),
-            "N" => Ok(Region::N),
-            "P" => Ok(Region::P),
+            "A" => Ok(Self::A),
+            "B" => Ok(Self::B),
+            "C" => Ok(Self::C),
+            "D" => Ok(Self::D),
+            "E" => Ok(Self::E),
+            "F" => Ok(Self::F),
+            "G" => Ok(Self::G),
+            "H" => Ok(Self::H),
+            "J" => Ok(Self::J),
+            "K" => Ok(Self::K),
+            "L" => Ok(Self::L),
+            "M" => Ok(Self::M),
+            "N" => Ok(Self::N),
+            "P" => Ok(Self::P),
             _ => Err(AppError::ConfigError(format!("Invalid region code: {s}"))),
         }
     }
@@ -252,7 +252,7 @@ impl ApiConfigBuilder {
     }
 
     /// Sets the distribution region.
-    pub fn region(mut self, region: Region) -> Self {
+    pub const fn region(mut self, region: Region) -> Self {
         self.region = Some(region);
         self
     }
@@ -279,6 +279,7 @@ struct ApiResponse<T> {
     #[serde(default)]
     next: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     count: Option<usize>,
 }
 
@@ -324,7 +325,7 @@ impl OctopusClient {
     }
 
     /// Returns a reference to the client's configuration.
-    pub fn config(&self) -> &ApiConfig {
+    pub const fn config(&self) -> &ApiConfig {
         &self.config
     }
 
@@ -463,15 +464,14 @@ impl OctopusClient {
                     // Return partial data if we have some, otherwise propagate error
                     if all_rates.is_empty() {
                         return Err(e);
-                    } else {
-                        gloo::console::warn!(format!(
-                            "Pagination stopped at page {} with error: {}. Returning {} records.",
-                            page,
-                            e,
-                            all_rates.len()
-                        ));
-                        break;
                     }
+                    gloo::console::warn!(format!(
+                        "Pagination stopped at page {} with error: {}. Returning {} records.",
+                        page,
+                        e,
+                        all_rates.len()
+                    ));
+                    break;
                 }
             }
         }
@@ -479,7 +479,7 @@ impl OctopusClient {
         Ok(all_rates)
     }
 
-    /// Converts a reqwest error into an appropriate AppError.
+    /// Converts a reqwest error into an appropriate `AppError`.
     fn classify_error(&self, error: reqwest::Error) -> AppError {
         if error.is_timeout() {
             AppError::ApiError(format!("Request timeout: {error}"))

@@ -13,9 +13,9 @@ pub enum TrackerDataState {
 }
 
 impl TrackerDataState {
-    pub fn data(&self) -> Option<&Rc<TrackerRates>> {
+    pub const fn data(&self) -> Option<&Rc<TrackerRates>> {
         match self {
-            TrackerDataState::Loaded(rates) => Some(rates),
+            Self::Loaded(rates) => Some(rates),
             _ => None,
         }
     }
@@ -32,7 +32,7 @@ pub fn use_tracker_rates(region: Region) -> UseStateHandle<TrackerDataState> {
 
         use_effect_with((trigger_value, region), move |(_, region)| {
             let state = state.clone();
-            let trigger = trigger.clone();
+            let trigger = trigger;
             let region = *region;
 
             // Reset to loading when region changes

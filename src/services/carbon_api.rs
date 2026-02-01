@@ -86,7 +86,7 @@ impl CarbonIntensityClient {
         Ok(CarbonIntensity::new(latest_intensity, next))
     }
 
-    /// Converts a reqwest error into an appropriate AppError
+    /// Converts a reqwest error into an appropriate `AppError`
     fn classify_error(&self, error: reqwest::Error) -> AppError {
         if error.is_timeout() {
             AppError::ApiError(format!("Request timeout: {error}"))

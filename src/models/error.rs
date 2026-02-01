@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum AppError {
     #[error("API Error: {0}")]
     ApiError(String),

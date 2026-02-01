@@ -29,7 +29,6 @@ pub fn chart(props: &ChartProps) -> Html {
     let series_data = use_memo(props.rates.clone(), |rates| rates.series_data());
 
     {
-        let series_data = series_data.clone();
         let container_ref = container_ref.clone();
         let dark_mode = props.dark_mode;
 
@@ -63,30 +62,25 @@ fn render_chart(
     series_data: &Result<(Vec<String>, Vec<f64>), crate::models::error::AppError>,
     dark_mode: bool,
 ) {
-    let width = container.client_width() as u32;
-    let height = container.client_height() as u32;
+    let width = container.client_width().cast_unsigned();
+    let height = container.client_height().cast_unsigned();
 
     if width == 0 || height == 0 {
         return;
     }
 
     match series_data {
-        Ok(data) => match build_chart(data, dark_mode) {
-            Ok(chart) => {
-                if let Err(e) = WasmRenderer::new(width, height).render(CHART_ID, &chart) {
-                    web_sys::console::error_1(&format!("Render error: {e:?}").into());
-                }
+        Ok(data) => {
+            let chart = build_chart(data, dark_mode);
+            if let Err(e) = WasmRenderer::new(width, height).render(CHART_ID, &chart) {
+                web_sys::console::error_1(&format!("Render error: {e:?}").into());
             }
-            Err(e) => web_sys::console::error_1(&format!("Chart error: {e}").into()),
-        },
+        }
         Err(e) => web_sys::console::error_1(&format!("Series data error: {e}").into()),
     }
 }
 
-fn build_chart(
-    series_data: &(Vec<String>, Vec<f64>),
-    dark_mode: bool,
-) -> Result<CharmingChart, crate::models::error::AppError> {
+fn build_chart(series_data: &(Vec<String>, Vec<f64>), dark_mode: bool) -> CharmingChart {
     let (x_data, y_data) = series_data;
 
     // Theme-aware colors
@@ -117,7 +111,7 @@ fn build_chart(
         ]
     };
 
-    Ok(CharmingChart::new()
+    CharmingChart::new()
         .title(
             Title::new()
                 .text("Energy Prices")
@@ -163,5 +157,5 @@ fn build_chart(
                     ),
                 ),
         )
-        .series(Bar::new().data(y_data.clone()).bar_width("70%")))
+        .series(Bar::new().data(y_data.clone()).bar_width("70%"))
 }
