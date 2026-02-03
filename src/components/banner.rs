@@ -2,41 +2,6 @@ use crate::utils::debounce::create_debounced_resize_listener;
 use web_sys::HtmlElement;
 use yew::prelude::*;
 
-/// Computes mean for each time index across all 48 elements
-/// Input: 48 x N flattened or nested data (where N is number of days)
-/// Output: N mean values (averaged across all 48 half-hour slots per day)
-pub fn compute_means(data: &[Vec<f64>]) -> Vec<f64> {
-    if data.is_empty() {
-        return vec![];
-    }
-
-    // Find the maximum length to determine how many days we have
-    let max_len = data.iter().map(Vec::len).max().unwrap_or(0);
-    if max_len == 0 {
-        return vec![];
-    }
-
-    (0..max_len)
-        .map(|i| {
-            // Only sum values where the series has data at index i
-            let (sum, count) = data.iter().fold((0.0, 0), |(sum, count), series| {
-                if let Some(&value) = series.get(i) {
-                    (sum + value, count + 1)
-                } else {
-                    (sum, count)
-                }
-            });
-
-            // Average only across slots that have data for this day
-            if count > 0 {
-                sum / f64::from(count)
-            } else {
-                0.0
-            }
-        })
-        .collect()
-}
-
 /// Generates SVG path data from values
 #[allow(clippy::cast_precision_loss)]
 pub fn build_path(values: &[f64], width: f64, height: f64, padding: f64) -> String {
@@ -140,7 +105,7 @@ pub fn build_smooth_path(values: &[f64], width: f64, height: f64, padding: f64) 
 
 #[derive(Properties, PartialEq)]
 pub struct TraceBannerProps {
-    /// Pre-computed mean values (365 points)
+    /// Historical price values (31 days × 48 half-hours = ~1488 points)
     pub values: Vec<f64>,
 
     /// Height in pixels

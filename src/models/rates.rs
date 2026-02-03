@@ -59,6 +59,11 @@ impl Rates {
         self.data.len()
     }
 
+    /// Extract all price values in chronological order (sorted by valid_from)
+    pub fn all_values(&self) -> Vec<f64> {
+        self.data.iter().map(|r| r.value_inc_vat).collect()
+    }
+
     /// Find the rate valid at a specific time using binary search
     /// Returns None if no rate covers the given time (gap or out of range)
     pub fn rate_at(&self, time: DateTime<Utc>) -> Option<&Rate> {
@@ -157,35 +162,6 @@ impl Rates {
         }
 
         Ok((x_data, y_data))
-    }
-
-    /// Extracts values grouped by half-hour slot across multiple days
-    /// Returns Vec<Vec<f64>> where outer Vec is 48 half-hour slots,
-    /// inner Vec contains values for that slot across all days
-    pub fn grouped_by_half_hour_slot(&self) -> Vec<Vec<f64>> {
-        use chrono::Timelike;
-        use std::collections::HashMap;
-
-        // Group rates by their time-of-day slot (0-47 for 00:00-23:30)
-        let mut slots: HashMap<usize, Vec<f64>> = HashMap::new();
-
-        for rate in &self.data {
-            let hour = rate.valid_from.hour() as usize;
-            let minute = rate.valid_from.minute() as usize;
-            let slot = hour * 2 + minute / 30; // 0-47 for half-hour slots
-
-            slots.entry(slot).or_default().push(rate.value_inc_vat);
-        }
-
-        // Convert to Vec<Vec<f64>> with 48 entries
-        let mut result = vec![vec![]; 48];
-        for (slot, values) in slots {
-            if slot < 48 {
-                result[slot] = values;
-            }
-        }
-
-        result
     }
 
     /// Filter rates for a specific date (midnight to midnight UTC)

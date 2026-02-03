@@ -12,7 +12,7 @@ use components::status::Status;
 use components::summary::Summary;
 use components::tracker_display::TrackerDisplay;
 use components::{
-    CarbonDisplay, CheapestPeriod, RegionSelector, ThemeToggle, TraceBanner, compute_means,
+    CarbonDisplay, CheapestPeriod, RegionSelector, ThemeToggle, TraceBanner,
 };
 use hooks::use_carbon::{CarbonDataState, use_carbon_intensity};
 use hooks::use_historical_rates::use_historical_rates;
@@ -32,13 +32,10 @@ fn app() -> Html {
     let carbon_state = use_carbon_intensity();
     let theme_handle = use_theme();
 
-    // Transform historical Agile rates to banner values using memoization
+    // Extract all historical rate values for banner (31 days × 48 half-hours = ~1488 points)
     let banner_values = use_memo(historical_state.clone(), |state| {
         match state.data() {
-            Some(rates) => {
-                let grouped = rates.grouped_by_half_hour_slot();
-                compute_means(&grouped)
-            }
+            Some(rates) => rates.all_values(),
             None => vec![], // Empty during Loading/Error
         }
     });

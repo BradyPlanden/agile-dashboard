@@ -165,7 +165,7 @@ impl ApiConfig {
         )
     }
 
-    /// Constructs the full URL for historical Agile tariff rates (365 days).
+    /// Constructs the full URL for historical Agile tariff rates.
     pub fn agile_url_historical(&self, now: DateTime<Utc>, n_days: i64) -> String {
         let base = self.build_tariff_url(&self.agile_product);
         let (from, to) = Self::calculate_historical_period(now, n_days);
@@ -337,9 +337,9 @@ impl OctopusClient {
         Ok(Rates::new(rates))
     }
 
-    /// Fetches historical Agile tariff rates (365 days).
+    /// Fetches historical Agile tariff rates (31 days).
     pub async fn fetch_agile_rates_historical(&self) -> Result<Rates, AppError> {
-        let url = self.config.agile_url_historical(Utc::now(), 365);
+        let url = self.config.agile_url_historical(Utc::now(), 31);
 
         // Use paginated fetch to get all historical data
         let rates = self.fetch_paginated(&url).await?;
@@ -515,7 +515,7 @@ pub async fn fetch_rates() -> Result<Rates, AppError> {
     OctopusClient::new()?.fetch_agile_rates().await
 }
 
-/// Fetches historical Agile rates (365 days) using default configuration.
+/// Fetches historical Agile rates (31 days) using default configuration.
 pub async fn fetch_historical_rates() -> Result<Rates, AppError> {
     OctopusClient::new()?.fetch_agile_rates_historical().await
 }

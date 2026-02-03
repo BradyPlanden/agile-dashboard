@@ -467,15 +467,6 @@ mod tests {
     // ===== Banner Edge Case Tests =====
 
     #[test]
-    fn test_compute_means_empty() {
-        use agile_dashboard::components::compute_means;
-
-        let empty: Vec<Vec<f64>> = vec![];
-        let result = compute_means(&empty);
-        assert_eq!(result.len(), 0);
-    }
-
-    #[test]
     fn test_banner_single_value() {
         use agile_dashboard::components::build_path;
 
@@ -502,7 +493,7 @@ mod tests {
         use agile_dashboard::components::{build_path, build_smooth_path};
 
         // All identical values (flat line)
-        let values = vec![15.5; 365];
+        let values = vec![15.5; 31];
 
         let path = build_path(&values, 1000.0, 60.0, 4.0);
         assert!(!path.is_empty());
