@@ -11,9 +11,7 @@ use components::chart::Chart;
 use components::status::Status;
 use components::summary::Summary;
 use components::tracker_display::TrackerDisplay;
-use components::{
-    CarbonDisplay, CheapestPeriod, RegionSelector, ThemeToggle, TraceBanner,
-};
+use components::{CarbonDisplay, CheapestPeriod, RegionSelector, ThemeToggle, TraceBanner};
 use hooks::use_carbon::{CarbonDataState, use_carbon_intensity};
 use hooks::use_historical_rates::use_historical_rates;
 use hooks::use_rates::use_rates;

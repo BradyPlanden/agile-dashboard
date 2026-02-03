@@ -36,17 +36,6 @@ impl IntensityIndex {
             Self::VeryHigh => "Very High",
         }
     }
-
-    /// Returns color for display (hex code)
-    pub const fn color(&self) -> &'static str {
-        match self {
-            Self::VeryLow => "#059669",  // dark green
-            Self::Low => "#10b981",      // light green
-            Self::Moderate => "#f59e0b", // yellow/amber
-            Self::High => "#f97316",     // orange
-            Self::VeryHigh => "#dc2626", // red
-        }
-    }
 }
 
 /// Intensity data for a specific time period

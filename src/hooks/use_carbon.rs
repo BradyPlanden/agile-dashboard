@@ -13,15 +13,6 @@ pub enum CarbonDataState {
     Error(String),
 }
 
-impl CarbonDataState {
-    pub const fn data(&self) -> Option<&Rc<CarbonIntensity>> {
-        match self {
-            Self::Loaded(data) => Some(data),
-            _ => None,
-        }
-    }
-}
-
 #[hook]
 pub fn use_carbon_intensity() -> UseStateHandle<CarbonDataState> {
     let state = use_state(|| CarbonDataState::Loading);

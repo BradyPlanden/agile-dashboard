@@ -13,15 +13,6 @@ pub enum TrackerDataState {
     Error(String),
 }
 
-impl TrackerDataState {
-    pub const fn data(&self) -> Option<&Rc<TrackerRates>> {
-        match self {
-            Self::Loaded(rates) => Some(rates),
-            _ => None,
-        }
-    }
-}
-
 #[hook]
 pub fn use_tracker_rates(region: Region) -> UseStateHandle<TrackerDataState> {
     let state = use_state(|| TrackerDataState::Loading);

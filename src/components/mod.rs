@@ -9,7 +9,7 @@ pub mod summary;
 pub mod theme_toggle;
 pub mod tracker_display;
 
-pub use banner::{TraceBanner, build_path, build_smooth_path};
+pub use banner::TraceBanner;
 pub use carbon_display::CarbonDisplay;
 pub use cheapest_period::CheapestPeriod;
 pub use day_summary::DaySummary;

@@ -53,7 +53,6 @@ needless_pass_by_value = "allow"
 trivially_copy_pass_by_ref = "allow"
 redundant_clone = "allow"
 uninlined_format_args = "allow"
-dead_code = "allow"
 
 [lints.clippy.float_cmp]
 level = "allow"

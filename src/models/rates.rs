@@ -15,16 +15,6 @@ pub struct Rates {
     data: Vec<Rate>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct PriceStats {
-    pub min: f64,
-    pub max: f64,
-    pub avg: f64,
-    pub current: f64,
-    pub next: f64,
-    pub price_range: String,
-}
-
 /// Statistics for a specific day (price range and average only)
 #[derive(Debug, Clone, PartialEq)]
 pub struct DayStats {
@@ -51,15 +41,7 @@ impl Rates {
         Self { data }
     }
 
-    pub const fn is_empty(&self) -> bool {
-        self.data.is_empty()
-    }
-
-    pub const fn len(&self) -> usize {
-        self.data.len()
-    }
-
-    /// Extract all price values in chronological order (sorted by valid_from)
+    /// Extract all price values in chronological order (sorted by `valid_from`)
     pub fn all_values(&self) -> Vec<f64> {
         self.data.iter().map(|r| r.value_inc_vat).collect()
     }
@@ -83,68 +65,8 @@ impl Rates {
         self.rate_at(current.valid_to)
     }
 
-    // Public API using current system time
-    pub fn current_rate(&self) -> Result<&Rate, AppError> {
-        self.rate_at(Utc::now())
-            .ok_or_else(|| AppError::DataError("No current rate found".to_string()))
-    }
-
-    pub fn current_price(&self) -> Result<f64, AppError> {
-        self.current_rate().map(|r| r.value_inc_vat)
-    }
-
-    pub fn next_price(&self) -> Result<f64, AppError> {
-        self.next_rate(Utc::now())
-            .map(|r| r.value_inc_vat)
-            .ok_or_else(|| AppError::DataError("No next rate found".to_string()))
-    }
-
-    pub fn stats(&self) -> Result<PriceStats, AppError> {
-        self.stats_at(Utc::now())
-    }
-
-    // Core functionality
-    pub fn stats_at(&self, time: DateTime<Utc>) -> Result<PriceStats, AppError> {
-        if self.data.is_empty() {
-            return Err(AppError::DataError("No data available".to_string()));
-        }
-
-        let mut min = f64::INFINITY;
-        let mut max = f64::NEG_INFINITY;
-        let mut sum = 0.0;
-
-        for rate in &self.data {
-            let val = rate.value_inc_vat;
-            min = min.min(val);
-            max = max.max(val);
-            sum += val;
-        }
-
-        let avg = sum / self.data.len() as f64;
-        let current = self.rate_at(time).map_or(0.0, |r| r.value_inc_vat);
-        let next = self.next_rate(time).map_or(0.0, |r| r.value_inc_vat);
-
-        Ok(PriceStats {
-            min,
-            max,
-            avg,
-            current,
-            next,
-            price_range: format!("{min:.2}p - {max:.2}p"),
-        })
-    }
-
     pub fn filter_from(&self, from: DateTime<Utc>) -> impl Iterator<Item = &Rate> {
         self.data.iter().filter(move |r| r.valid_from >= from)
-    }
-
-    pub fn filter_for_today(&self) -> Vec<Rate> {
-        let start_of_today = Utc::now().date_naive();
-        self.data
-            .iter()
-            .filter(|r| r.valid_from.date_naive() >= start_of_today)
-            .cloned()
-            .collect()
     }
 
     pub fn series_data(&self) -> Result<(Vec<String>, Vec<f64>), AppError> {
@@ -177,11 +99,6 @@ impl Rates {
             .iter()
             .filter(|r| r.valid_from >= start_of_day && r.valid_from < end_of_day)
             .collect()
-    }
-
-    /// Check if any data exists for a specific date
-    pub fn has_data_for_date(&self, date: chrono::NaiveDate) -> bool {
-        !self.filter_for_date(date).is_empty()
     }
 
     /// Compute statistics for a specific date, returns None if no data
@@ -529,7 +446,7 @@ mod tests {
             valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 12, 30, 0).unwrap(),
         }]);
 
-        assert!(rates.has_data_for_date(today));
-        assert!(!rates.has_data_for_date(tomorrow));
+        assert!(rates.stats_for_date(today).is_some());
+        assert!(rates.stats_for_date(tomorrow).is_none());
     }
 }

@@ -15,11 +15,6 @@ pub enum DataState {
 }
 
 impl DataState {
-    /// Returns true if the state is loading
-    pub const fn is_loading(&self) -> bool {
-        matches!(self, Self::Loading)
-    }
-
     /// Returns the data if it is loaded
     pub const fn data(&self) -> Option<&Rc<Rates>> {
         match self {

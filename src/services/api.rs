@@ -233,24 +233,6 @@ pub struct ApiConfigBuilder {
 }
 
 impl ApiConfigBuilder {
-    /// Sets a custom base URL (primarily for testing).
-    pub fn base_url(mut self, url: impl Into<String>) -> Self {
-        self.base_url = Some(url.into());
-        self
-    }
-
-    /// Sets the Agile product code.
-    pub fn agile_product(mut self, product: impl Into<String>) -> Self {
-        self.agile_product = Some(product.into());
-        self
-    }
-
-    /// Sets the Tracker product code.
-    pub fn tracker_product(mut self, product: impl Into<String>) -> Self {
-        self.tracker_product = Some(product.into());
-        self
-    }
-
     /// Sets the distribution region.
     pub const fn region(mut self, region: Region) -> Self {
         self.region = Some(region);
@@ -322,11 +304,6 @@ impl OctopusClient {
             .map_err(|e| AppError::ConfigError(format!("Failed to create HTTP client: {e}")))?;
 
         Ok(Self { http, config })
-    }
-
-    /// Returns a reference to the client's configuration.
-    pub const fn config(&self) -> &ApiConfig {
-        &self.config
     }
 
     /// Fetches Agile tariff rates.
@@ -510,19 +487,9 @@ impl Default for OctopusClient {
 }
 
 // CONVENIENCE FUNCTIONS
-/// Fetches Agile rates using default configuration.
-pub async fn fetch_rates() -> Result<Rates, AppError> {
-    OctopusClient::new()?.fetch_agile_rates().await
-}
-
 /// Fetches historical Agile rates (31 days) using default configuration.
 pub async fn fetch_historical_rates() -> Result<Rates, AppError> {
     OctopusClient::new()?.fetch_agile_rates_historical().await
-}
-
-/// Fetches Tracker rates using default configuration.
-pub async fn fetch_tracker_rates() -> Result<TrackerRates, AppError> {
-    OctopusClient::new()?.fetch_tracker_rates().await
 }
 
 /// Fetches Agile rates for a specific region.
