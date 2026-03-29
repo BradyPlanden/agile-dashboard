@@ -8,14 +8,14 @@ name = "agile_dashboard"
 path = "src/lib.rs"
 
 [dependencies]
-reqwest = { version = "0.13.1", features = ["json"] }
+reqwest = { version = "0.13.2", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.149"
 yew = { version = "0.22.0", features = ["csr"] }
-wasm-bindgen = "0.2.108"
-wasm-bindgen-futures = "0.4.58"
-web-sys = { version = "0.3.85", features = ["HtmlSelectElement", "MediaQueryList", "ResizeObserver"] }
-chrono = { version = "0.4.43", features = ["serde"] }
+wasm-bindgen = "0.2.118"
+wasm-bindgen-futures = "0.4.68"
+web-sys = { version = "0.3.95", features = ["HtmlSelectElement", "MediaQueryList", "ResizeObserver"] }
+chrono = { version = "0.4.44", features = ["serde"] }
 charming = { version = "0.6.0", features = ["wasm"] }
 gloo = "0.11.0"
 gloo-storage = "0.3.0"
