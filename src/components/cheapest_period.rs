@@ -29,9 +29,7 @@ pub fn cheapest_period() -> Html {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-            cheapest.map(|rate| {
-                london_time(rate.valid_from).format("%H:%M").to_string()
-            })
+            cheapest.map(|rate| london_time(rate.valid_from).format("%H:%M").to_string())
         }
         _ => None,
     };

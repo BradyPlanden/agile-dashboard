@@ -16,7 +16,8 @@ pub fn london_today() -> NaiveDate {
 
 pub fn london_midnight_utc(date: NaiveDate) -> DateTime<Utc> {
     let offset_seconds = london_midnight_offset_seconds(date);
-    let utc_midnight = date.and_time(NaiveTime::MIN) - chrono::Duration::seconds(i64::from(offset_seconds));
+    let utc_midnight =
+        date.and_time(NaiveTime::MIN) - chrono::Duration::seconds(i64::from(offset_seconds));
     utc_midnight.and_utc()
 }
 
@@ -27,8 +28,12 @@ fn london_offset(dt: DateTime<Utc>) -> FixedOffset {
 
 fn is_bst(dt: DateTime<Utc>) -> bool {
     let year = dt.year();
-    let bst_start = last_sunday(year, 3).and_time(NaiveTime::from_hms_opt(1, 0, 0).unwrap()).and_utc();
-    let bst_end = last_sunday(year, 10).and_time(NaiveTime::from_hms_opt(1, 0, 0).unwrap()).and_utc();
+    let bst_start = last_sunday(year, 3)
+        .and_time(NaiveTime::from_hms_opt(1, 0, 0).unwrap())
+        .and_utc();
+    let bst_end = last_sunday(year, 10)
+        .and_time(NaiveTime::from_hms_opt(1, 0, 0).unwrap())
+        .and_utc();
 
     dt >= bst_start && dt < bst_end
 }
@@ -51,7 +56,9 @@ fn last_sunday(year: i32, month: u32) -> NaiveDate {
         .expect("month has a previous day");
 
     while date.weekday() != Weekday::Sun {
-        date = date.pred_opt().expect("date can move backwards within month");
+        date = date
+            .pred_opt()
+            .expect("date can move backwards within month");
     }
 
     date
@@ -67,8 +74,14 @@ mod tests {
         let before = Utc.with_ymd_and_hms(2026, 3, 29, 0, 30, 0).unwrap();
         let after = Utc.with_ymd_and_hms(2026, 3, 29, 1, 30, 0).unwrap();
 
-        assert_eq!(london_time(before).format("%Y-%m-%d %H:%M").to_string(), "2026-03-29 00:30");
-        assert_eq!(london_time(after).format("%Y-%m-%d %H:%M").to_string(), "2026-03-29 02:30");
+        assert_eq!(
+            london_time(before).format("%Y-%m-%d %H:%M").to_string(),
+            "2026-03-29 00:30"
+        );
+        assert_eq!(
+            london_time(after).format("%Y-%m-%d %H:%M").to_string(),
+            "2026-03-29 02:30"
+        );
     }
 
     #[test]

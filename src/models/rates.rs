@@ -78,7 +78,6 @@ impl Rates {
         &self,
         start_of_today: chrono::NaiveDate,
     ) -> Result<(Vec<String>, Vec<f64>), AppError> {
-
         let (x_data, y_data): (Vec<_>, Vec<_>) = self
             .data
             .iter()
