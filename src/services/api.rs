@@ -2,7 +2,8 @@ use crate::models::{
     error::AppError,
     rates::{Rate, Rates, TrackerRates},
 };
-use chrono::{DateTime, Duration, NaiveTime, Utc};
+use crate::utils::time::{london_date, london_midnight_utc};
+use chrono::{DateTime, Days, Utc};
 use serde::{Deserialize, Serialize};
 
 // CONSTANTS
@@ -198,9 +199,12 @@ impl ApiConfig {
     }
 
     fn calculate_period(now: DateTime<Utc>) -> (DateTime<Utc>, DateTime<Utc>) {
-        let midnight = NaiveTime::MIN;
-        let start = now.date_naive().and_time(midnight).and_utc();
-        let end = start + Duration::days(2);
+        let today = london_date(now);
+        let end_date = today
+            .checked_add_days(Days::new(2))
+            .expect("two days after today should be valid");
+        let start = london_midnight_utc(today);
+        let end = london_midnight_utc(end_date);
         (start, end)
     }
 
@@ -209,9 +213,13 @@ impl ApiConfig {
         now: DateTime<Utc>,
         n_days: i64,
     ) -> (DateTime<Utc>, DateTime<Utc>) {
-        let midnight = NaiveTime::MIN;
-        let end = now.date_naive().and_time(midnight).and_utc();
-        let start = end - Duration::days(n_days);
+        let today = london_date(now);
+        let day_count = u64::try_from(n_days).expect("historical day count must be non-negative");
+        let end = london_midnight_utc(today);
+        let start_date = today
+            .checked_sub_days(Days::new(day_count))
+            .expect("historical start date should be valid");
+        let start = london_midnight_utc(start_date);
         (start, end)
     }
 }
@@ -511,6 +519,7 @@ pub async fn fetch_tracker_rates_for_region(region: Region) -> Result<TrackerRat
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
     #[test]
     fn test_region_parsing() {
@@ -557,6 +566,24 @@ mod tests {
         assert!(url.contains("-A/"));
         assert!(url.contains("period_from="));
         assert!(url.contains("period_to="));
+    }
+
+    #[test]
+    fn test_calculate_period_uses_london_midnight_in_bst() {
+        let now = Utc.with_ymd_and_hms(2026, 3, 29, 12, 0, 0).unwrap();
+        let (start, end) = ApiConfig::calculate_period(now);
+
+        assert_eq!(start, Utc.with_ymd_and_hms(2026, 3, 29, 0, 0, 0).unwrap());
+        assert_eq!(end, Utc.with_ymd_and_hms(2026, 3, 30, 23, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn test_calculate_historical_period_uses_london_midnight_in_bst() {
+        let now = Utc.with_ymd_and_hms(2026, 3, 30, 12, 0, 0).unwrap();
+        let (start, end) = ApiConfig::calculate_historical_period(now, 1);
+
+        assert_eq!(start, Utc.with_ymd_and_hms(2026, 3, 29, 0, 0, 0).unwrap());
+        assert_eq!(end, Utc.with_ymd_and_hms(2026, 3, 29, 23, 0, 0).unwrap());
     }
 
     #[test]

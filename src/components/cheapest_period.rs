@@ -1,8 +1,9 @@
-use chrono::{Duration, DurationRound, Local, Utc};
+use chrono::{Duration, DurationRound, Utc};
 use yew::prelude::*;
 
 use crate::hooks::use_rates::{DataState, use_rates};
 use crate::hooks::use_region::use_region;
+use crate::utils::time::london_time;
 
 /// Displays the cheapest electricity period in the next 3 hours
 #[function_component(CheapestPeriod)]
@@ -29,9 +30,7 @@ pub fn cheapest_period() -> Html {
                 });
 
             cheapest.map(|rate| {
-                // Convert to local time and format as HH:MM
-                let local_time = rate.valid_from.with_timezone(&Local);
-                local_time.format("%H:%M").to_string()
+                london_time(rate.valid_from).format("%H:%M").to_string()
             })
         }
         _ => None,

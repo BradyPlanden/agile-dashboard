@@ -5,6 +5,7 @@ mod tests {
         error::AppError,
         rates::{Rate, Rates, TrackerRates},
     };
+    use agile_dashboard::utils::time::{london_midnight_utc, london_today};
     use chrono::{Days, Duration, TimeZone, Utc};
     use std::rc::Rc;
 
@@ -28,28 +29,6 @@ mod tests {
                 value_exc_vat: 18.7 / 1.2,
                 valid_from: Utc.with_ymd_and_hms(2025, 10, 4, 1, 0, 0).unwrap(),
                 valid_to: Utc.with_ymd_and_hms(2025, 10, 4, 1, 30, 0).unwrap(),
-            },
-        ]
-    }
-
-    // Helper function to create rates with current timestamp
-    fn create_current_time_rates() -> Vec<Rate> {
-        let now = Utc::now();
-        let past = now - Duration::minutes(15);
-        let future = now + Duration::minutes(15);
-
-        vec![
-            Rate {
-                value_inc_vat: 25.5,
-                value_exc_vat: 25.0 / 1.2,
-                valid_from: past,
-                valid_to: future,
-            },
-            Rate {
-                value_inc_vat: 30.0,
-                value_exc_vat: 30.0 / 1.2,
-                valid_from: future,
-                valid_to: future + Duration::hours(1),
             },
         ]
     }
@@ -110,21 +89,21 @@ mod tests {
 
     #[test]
     fn test_rates_series_data_format() {
-        let now = Utc::now();
-        let today_midnight = now.date_naive();
+        let today = london_today();
+        let today_midnight = london_midnight_utc(today);
 
         let rates_vec = vec![
             Rate {
                 value_inc_vat: 15.5,
                 value_exc_vat: 15.5 / 1.2,
-                valid_from: Utc.from_utc_datetime(&today_midnight.and_hms_opt(0, 0, 0).unwrap()),
-                valid_to: Utc.from_utc_datetime(&today_midnight.and_hms_opt(0, 30, 0).unwrap()),
+                valid_from: today_midnight,
+                valid_to: today_midnight + Duration::minutes(30),
             },
             Rate {
                 value_inc_vat: 20.3,
                 value_exc_vat: 20.3 / 1.2,
-                valid_from: Utc.from_utc_datetime(&today_midnight.and_hms_opt(0, 30, 0).unwrap()),
-                valid_to: Utc.from_utc_datetime(&today_midnight.and_hms_opt(1, 0, 0).unwrap()),
+                valid_from: today_midnight + Duration::minutes(30),
+                valid_to: today_midnight + Duration::hours(1),
             },
         ];
 
@@ -145,22 +124,21 @@ mod tests {
 
     #[test]
     fn test_rates_series_data_sorting() {
-        let now = Utc::now();
-        let today_midnight = now.date_naive();
+        let today_midnight = london_midnight_utc(london_today());
 
         // Create rates in reverse chronological order
         let rates_vec = vec![
             Rate {
                 value_inc_vat: 20.3,
                 value_exc_vat: 20.3 / 1.2,
-                valid_from: Utc.from_utc_datetime(&today_midnight.and_hms_opt(1, 0, 0).unwrap()),
-                valid_to: Utc.from_utc_datetime(&today_midnight.and_hms_opt(1, 30, 0).unwrap()),
+                valid_from: today_midnight + Duration::minutes(30),
+                valid_to: today_midnight + Duration::hours(1),
             },
             Rate {
                 value_inc_vat: 15.5,
                 value_exc_vat: 15.5 / 1.2,
-                valid_from: Utc.from_utc_datetime(&today_midnight.and_hms_opt(0, 0, 0).unwrap()),
-                valid_to: Utc.from_utc_datetime(&today_midnight.and_hms_opt(0, 30, 0).unwrap()),
+                valid_from: today_midnight,
+                valid_to: today_midnight + Duration::minutes(30),
             },
         ];
 
@@ -174,7 +152,7 @@ mod tests {
         assert_eq!(y_data[0], 15.5);
         assert_eq!(y_data[1], 20.3);
         assert!(x_data[0].contains("00:00"));
-        assert!(x_data[1].contains("01:00"));
+        assert!(x_data[1].contains("00:30"));
     }
 
     // ===== DataState Tests =====

@@ -1,4 +1,5 @@
 use super::error::AppError;
+use crate::utils::time::{london_date, london_time, london_today};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -70,13 +71,24 @@ impl Rates {
     }
 
     pub fn series_data(&self) -> Result<(Vec<String>, Vec<f64>), AppError> {
-        let start_of_today = Utc::now().date_naive();
+        self.series_data_from(london_today())
+    }
+
+    fn series_data_from(
+        &self,
+        start_of_today: chrono::NaiveDate,
+    ) -> Result<(Vec<String>, Vec<f64>), AppError> {
 
         let (x_data, y_data): (Vec<_>, Vec<_>) = self
             .data
             .iter()
-            .filter(|r| r.valid_from.date_naive() >= start_of_today)
-            .map(|r| (r.valid_from.format("%a %H:%M").to_string(), r.value_inc_vat))
+            .filter(|r| london_date(r.valid_from) >= start_of_today)
+            .map(|r| {
+                (
+                    london_time(r.valid_from).format("%a %H:%M").to_string(),
+                    r.value_inc_vat,
+                )
+            })
             .unzip();
 
         if x_data.is_empty() {
@@ -86,18 +98,11 @@ impl Rates {
         Ok((x_data, y_data))
     }
 
-    /// Filter rates for a specific date (midnight to midnight UTC)
+    /// Filter rates for a specific London local date
     fn filter_for_date(&self, date: chrono::NaiveDate) -> Vec<&Rate> {
-        use chrono::{Duration, NaiveTime};
-
-        let start_of_day = date
-            .and_time(NaiveTime::from_hms_opt(0, 0, 0).unwrap())
-            .and_utc();
-        let end_of_day = start_of_day + Duration::days(1);
-
         self.data
             .iter()
-            .filter(|r| r.valid_from >= start_of_day && r.valid_from < end_of_day)
+            .filter(|r| london_date(r.valid_from) == date)
             .collect()
     }
 
@@ -133,7 +138,7 @@ impl Rates {
 
     /// Get comprehensive daily statistics (today + optional tomorrow)
     pub fn daily_stats(&self) -> Result<DailyStats, AppError> {
-        let today = Utc::now().date_naive();
+        let today = london_today();
         let tomorrow = today + chrono::Duration::days(1);
 
         let today_stats = self
@@ -173,8 +178,8 @@ impl TrackerRates {
     }
 
     pub fn next_day_rate(&self) -> Option<&Rate> {
-        let today = Utc::now().date_naive();
-        self.data.iter().find(|r| r.valid_from.date_naive() > today)
+        let today = london_today();
+        self.data.iter().find(|r| london_date(r.valid_from) > today)
     }
 
     pub fn current_price(&self) -> Option<f64> {
@@ -448,5 +453,33 @@ mod tests {
 
         assert!(rates.stats_for_date(today).is_some());
         assert!(rates.stats_for_date(tomorrow).is_none());
+    }
+
+    #[test]
+    fn test_series_data_formats_spring_forward_day_in_london_time() {
+        use chrono::NaiveDate;
+
+        let spring_forward_day = NaiveDate::from_ymd_opt(2026, 3, 29).unwrap();
+        let rates = Rates::new(vec![
+            Rate {
+                value_inc_vat: 10.0,
+                value_exc_vat: 8.33,
+                valid_from: Utc.with_ymd_and_hms(2026, 3, 29, 0, 0, 0).unwrap(),
+                valid_to: Utc.with_ymd_and_hms(2026, 3, 29, 0, 30, 0).unwrap(),
+            },
+            Rate {
+                value_inc_vat: 12.0,
+                value_exc_vat: 10.0,
+                valid_from: Utc.with_ymd_and_hms(2026, 3, 29, 1, 0, 0).unwrap(),
+                valid_to: Utc.with_ymd_and_hms(2026, 3, 29, 1, 30, 0).unwrap(),
+            },
+        ]);
+
+        let (x_data, y_data) = rates.series_data_from(spring_forward_day).unwrap();
+
+        assert_eq!(y_data, vec![10.0, 12.0]);
+        assert!(x_data.iter().any(|label| label.contains("00:00")));
+        assert!(x_data.iter().any(|label| label.contains("02:00")));
+        assert!(!x_data.iter().any(|label| label.contains("01:00")));
     }
 }
