@@ -1,4 +1,4 @@
-use crate::utils::debounce::create_debounced_resize_listener;
+use crate::utils::debounce::create_debounced_resize_observer;
 use web_sys::HtmlElement;
 use yew::prelude::*;
 
@@ -137,28 +137,34 @@ pub fn trace_banner(props: &TraceBannerProps) -> Html {
         let viewbox_width = viewbox_width.clone();
 
         use_effect_with(container_ref.clone(), move |container_ref| {
-            let listener = container_ref.cast::<HtmlElement>().map(|container| {
+            let observer = container_ref.cast::<HtmlElement>().and_then(|container| {
                 // Measure initial width
                 let width = f64::from(container.client_width());
                 if width > 0.0 {
                     viewbox_width.set(width);
                 }
 
-                // Setup debounced resize listener (150ms delay)
                 let viewbox_width = viewbox_width.clone();
-                let container = container.clone();
-                create_debounced_resize_listener(
+                let callback_container = container.clone();
+                create_debounced_resize_observer(
+                    &container,
                     move || {
-                        let width = f64::from(container.client_width());
+                        let width = f64::from(callback_container.client_width());
                         if width > 0.0 {
                             viewbox_width.set(width);
                         }
                     },
                     150,
                 )
+                .map_err(|error| {
+                    web_sys::console::error_1(
+                        &format!("ResizeObserver setup error: {error:?}").into(),
+                    );
+                })
+                .ok()
             });
 
-            move || drop(listener)
+            move || drop(observer)
         });
     }
 

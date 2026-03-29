@@ -1,4 +1,4 @@
-use crate::utils::debounce::create_debounced_resize_listener;
+use crate::utils::debounce::create_debounced_resize_observer;
 use charming::{
     Chart as CharmingChart,
     component::{Axis, Grid, Title, VisualMap, VisualMapPiece},
@@ -6,7 +6,7 @@ use charming::{
         AxisLabel, AxisPointer, AxisPointerType, AxisType, LineStyle, LineStyleType, SplitLine,
         TextStyle, Tooltip, Trigger,
     },
-    renderer::WasmRenderer,
+    renderer::{ChartResize, Echarts, WasmRenderer},
     series::Bar,
 };
 use std::rc::Rc;
@@ -26,31 +26,50 @@ pub struct ChartProps {
 #[function_component(Chart)]
 pub fn chart(props: &ChartProps) -> Html {
     let container_ref = use_node_ref();
+    let chart_instance = use_mut_ref(|| None::<Echarts>);
     let series_data = use_memo(props.rates.clone(), |rates| rates.series_data());
 
     {
         let container_ref = container_ref.clone();
+        let chart_instance = chart_instance.clone();
         let dark_mode = props.dark_mode;
         let series_data_for_effect = series_data.clone();
 
         use_effect_with(
             (series_data_for_effect, container_ref, dark_mode),
-            |(series_data, container_ref, dark_mode)| {
-                let listener = container_ref.cast::<HtmlElement>().map(|container| {
-                    render_chart(&container, series_data, *dark_mode);
+            move |(series_data, container_ref, dark_mode)| {
+                let observer = container_ref.cast::<HtmlElement>().and_then(|container| {
+                    {
+                        let mut chart_instance = chart_instance.borrow_mut();
+                        render_chart(&container, series_data, *dark_mode, &mut chart_instance);
+                    }
 
                     let series_data = series_data.clone();
                     let dark_mode = *dark_mode;
-                    let container = container.clone();
-                    create_debounced_resize_listener(
+                    let callback_container = container.clone();
+                    let chart_instance = chart_instance.clone();
+                    create_debounced_resize_observer(
+                        &container,
                         move || {
-                            render_chart(&container, &series_data, dark_mode);
+                            let mut chart_instance = chart_instance.borrow_mut();
+                            render_chart(
+                                &callback_container,
+                                &series_data,
+                                dark_mode,
+                                &mut chart_instance,
+                            );
                         },
                         150,
                     )
+                    .map_err(|error| {
+                        web_sys::console::error_1(
+                            &format!("ResizeObserver setup error: {error:?}").into(),
+                        );
+                    })
+                    .ok()
                 });
 
-                move || drop(listener)
+                move || drop(observer)
             },
         );
     }
@@ -86,6 +105,7 @@ fn render_chart(
     container: &HtmlElement,
     series_data: &Result<(Vec<String>, Vec<f64>), crate::models::error::AppError>,
     dark_mode: bool,
+    chart_instance: &mut Option<Echarts>,
 ) {
     let width = container.client_width().cast_unsigned();
     let height = container.client_height().cast_unsigned();
@@ -97,8 +117,19 @@ fn render_chart(
     match series_data {
         Ok(data) => {
             let chart = build_chart(data, dark_mode);
-            if let Err(e) = WasmRenderer::new(width, height).render(CHART_ID, &chart) {
-                web_sys::console::error_1(&format!("Render error: {e:?}").into());
+            if let Some(existing_chart) = chart_instance.as_ref() {
+                WasmRenderer::resize_chart(
+                    existing_chart,
+                    ChartResize::new(width, height, false, None),
+                );
+                WasmRenderer::update(existing_chart, &chart);
+            } else {
+                match WasmRenderer::new(width, height).render(CHART_ID, &chart) {
+                    Ok(existing_chart) => {
+                        *chart_instance = Some(existing_chart);
+                    }
+                    Err(e) => web_sys::console::error_1(&format!("Render error: {e:?}").into()),
+                }
             }
         }
         Err(e) => web_sys::console::error_1(&format!("Series data error: {e}").into()),

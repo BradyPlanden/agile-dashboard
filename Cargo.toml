@@ -12,8 +12,9 @@ reqwest = { version = "0.13.1", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.149"
 yew = { version = "0.22.0", features = ["csr"] }
+wasm-bindgen = "0.2.108"
 wasm-bindgen-futures = "0.4.58"
-web-sys = { version = "0.3.85", features = ["MediaQueryList", "HtmlSelectElement"] }
+web-sys = { version = "0.3.85", features = ["HtmlSelectElement", "MediaQueryList", "ResizeObserver"] }
 chrono = { version = "0.4.43", features = ["serde"] }
 charming = { version = "0.6.0", features = ["wasm"] }
 gloo = "0.11.0"

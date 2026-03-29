@@ -324,8 +324,9 @@ body {
 
 .chart-container {
     width: 100%;
-    height: 400px;
+    aspect-ratio: 2.25 / 1;
     min-height: 300px;
+    max-height: 400px;
 }
 
 .chart-container > div {
@@ -337,7 +338,9 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 400px;
+    aspect-ratio: 2.25 / 1;
+    min-height: 300px;
+    max-height: 400px;
     background: var(--color-bg-secondary);
     border: 2px dashed var(--color-border);
     border-radius: 8px;
