@@ -126,6 +126,10 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     transition: background-color 0.2s ease, color 0.2s ease, max-width 0.2s ease;
 }
@@ -231,12 +235,18 @@ body {
 .app-main {
     display: flex;
     flex-direction: column;
+    flex: 1;
 
     /* Fluid gap - scales from 20px to 36px */
     gap: clamp(20px, 1.5vw + 12px, 36px);
 }
 
-.app-main h2 {
+.app-footer {
+    margin-top: clamp(20px, 1.5vw + 12px, 36px);
+}
+
+.app-main h2,
+.app-footer h2 {
     color: var(--color-text-primary);
     margin: 0 0 20px;
 
@@ -860,7 +870,6 @@ body {
         padding: 16px;
     }
 
-    /* 2 columns for most grids */
     .summary-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 15px;
@@ -876,7 +885,6 @@ body {
         gap: 12px; /* Tighter for compact design */
     }
 
-    /* Carbon items span adjustments */
     .carbon-item-current,
     .carbon-item-next {
         grid-column: span 1;
@@ -1055,7 +1063,6 @@ body {
         font-size: 1.1rem;
     }
 
-    /* Maintain 2 columns with minimal gaps */
     .summary-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 10px;

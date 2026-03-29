@@ -121,11 +121,14 @@ fn app() -> Html {
                         }
                     }
                 }
+            </main>
+
+            <footer class="app-footer">
                 <section class="status-section">
                     <h2>{"API Status"}</h2>
                     <Status state={(*state).clone()} />
                 </section>
-            </main>
+            </footer>
 
             <style>
                 {include_str!("style.css")}
