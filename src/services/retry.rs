@@ -49,7 +49,7 @@ where
 
 fn warn(message: &str) {
     #[cfg(target_arch = "wasm32")]
-    gloo::console::warn!(message);
+    web_sys::console::warn_1(&message.into());
 
     #[cfg(not(target_arch = "wasm32"))]
     eprintln!("{message}");

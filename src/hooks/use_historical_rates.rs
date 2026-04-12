@@ -115,7 +115,8 @@ pub fn use_historical_rates() -> UseStateHandle<LoadState<Rates>> {
 }
 
 fn load_cached_historical_rates() -> Option<Rates> {
-    let cache: HistoricalRatesCache = gloo_storage::LocalStorage::get(HISTORICAL_RATES_CACHE_KEY).ok()?;
+    let cache: HistoricalRatesCache =
+        gloo_storage::LocalStorage::get(HISTORICAL_RATES_CACHE_KEY).ok()?;
 
     if cache.version != HISTORICAL_RATES_CACHE_VERSION {
         return None;
@@ -141,8 +142,7 @@ fn save_historical_rates(rates: &Rates) {
 }
 
 fn cache_is_fresh(fetched_at: DateTime<Utc>, now: DateTime<Utc>) -> bool {
-    now.signed_duration_since(fetched_at)
-        <= Duration::hours(HISTORICAL_RATES_CACHE_MAX_AGE_HOURS)
+    now.signed_duration_since(fetched_at) <= Duration::hours(HISTORICAL_RATES_CACHE_MAX_AGE_HOURS)
 }
 
 fn trim_to_current_historical_window(rates: &Rates, now: DateTime<Utc>) -> Rates {
@@ -157,7 +157,7 @@ fn trim_to_current_historical_window(rates: &Rates, now: DateTime<Utc>) -> Rates
 
 fn warn(message: &str) {
     #[cfg(target_arch = "wasm32")]
-    gloo::console::warn!(message);
+    web_sys::console::warn_1(&message.into());
 
     #[cfg(not(target_arch = "wasm32"))]
     eprintln!("{message}");
@@ -210,8 +210,10 @@ mod tests {
             },
         ]);
 
-        let trimmed =
-            trim_to_current_historical_window(&rates, Utc.with_ymd_and_hms(2026, 4, 12, 12, 0, 0).unwrap());
+        let trimmed = trim_to_current_historical_window(
+            &rates,
+            Utc.with_ymd_and_hms(2026, 4, 12, 12, 0, 0).unwrap(),
+        );
 
         assert_eq!(trimmed.all_values(), vec![20.0, 30.0]);
     }

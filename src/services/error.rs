@@ -33,11 +33,9 @@ pub fn error_for_status(status: reqwest::StatusCode, _body: &str) -> AppError {
 
 /// Builds the shared `reqwest::Client` used by API services.
 fn build_http_client() -> Result<reqwest::Client, AppError> {
-    reqwest::Client::builder()
-        .build()
-        .map_err(|error| {
-            AppError::ConfigError(format!("Failed to create shared HTTP client: {error}"))
-        })
+    reqwest::Client::builder().build().map_err(|error| {
+        AppError::ConfigError(format!("Failed to create shared HTTP client: {error}"))
+    })
 }
 
 /// Returns the lazily constructed shared `reqwest::Client`.

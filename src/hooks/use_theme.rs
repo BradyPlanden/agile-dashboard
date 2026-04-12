@@ -1,4 +1,4 @@
-use gloo::events::EventListener;
+use gloo_events::EventListener;
 use gloo_storage::Storage;
 use serde::{Deserialize, Serialize};
 use web_sys::wasm_bindgen::JsCast;

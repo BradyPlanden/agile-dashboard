@@ -338,7 +338,9 @@ impl OctopusClient {
     {
         let url = self.config.agile_url_historical(Utc::now(), 31);
 
-        let result = self.fetch_paginated_with_progress(&url, on_progress).await?;
+        let result = self
+            .fetch_paginated_with_progress(&url, on_progress)
+            .await?;
         Ok(HistoricalRatesFetchResult {
             rates: Rates::new(result.rates),
             complete: result.complete,
@@ -382,10 +384,7 @@ impl OctopusClient {
 
     /// Executes a single page fetch with retry logic for rate-limited responses.
     /// Returns the rates and the next page URL if available.
-    async fn fetch_page_with_retry(
-        &self,
-        url: &str,
-    ) -> Result<PageFetchResult, AppError> {
+    async fn fetch_page_with_retry(&self, url: &str) -> Result<PageFetchResult, AppError> {
         crate::services::retry::retry_with_backoff(
             || async {
                 let response = shared_http_client()?.get(url);
@@ -526,7 +525,7 @@ fn sanitize_next_url(raw_next: Option<String>) -> SanitizedNextUrl {
 
 fn warn(message: &str) {
     #[cfg(target_arch = "wasm32")]
-    gloo::console::warn!(message);
+    web_sys::console::warn_1(&message.into());
 
     #[cfg(not(target_arch = "wasm32"))]
     eprintln!("{message}");
