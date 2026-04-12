@@ -2,7 +2,7 @@ use crate::models::{
     carbon::{CarbonIntensity, CarbonIntensityData},
     error::AppError,
 };
-use crate::services::error::{build_http_client, error_for_status, send_with_timeout};
+use crate::services::error::{error_for_status, send_with_timeout, shared_http_client};
 use chrono::Utc;
 use serde::Deserialize;
 
@@ -14,13 +14,8 @@ struct CarbonApiResponse {
     data: Vec<CarbonIntensityData>,
 }
 
-/// A shared HTTP client used by all convenience functions to enable connection pooling.
-static HTTP_CLIENT: std::sync::LazyLock<reqwest::Client> =
-    std::sync::LazyLock::new(build_http_client);
-
 /// Client for the UK Carbon Intensity API
 pub struct CarbonIntensityClient {
-    http: reqwest::Client,
     base_url: String,
 }
 
@@ -34,7 +29,6 @@ impl CarbonIntensityClient {
     /// Creates a new client with default configuration
     pub fn new() -> Self {
         Self {
-            http: HTTP_CLIENT.clone(),
             base_url: CARBON_API_BASE.to_string(),
         }
     }
@@ -45,7 +39,7 @@ impl CarbonIntensityClient {
             || async {
                 let url = format!("{}/intensity/date", self.base_url);
 
-                let response = self.http.get(&url);
+                let response = shared_http_client()?.get(&url);
                 let response = send_with_timeout(response).await?;
 
                 let status = response.status();

@@ -2,7 +2,7 @@ use crate::models::{
     error::AppError,
     rates::{Rate, Rates, TrackerRates},
 };
-use crate::services::error::{build_http_client, error_for_status, send_with_timeout};
+use crate::services::error::{error_for_status, send_with_timeout, shared_http_client};
 use crate::utils::time::{london_date, london_midnight_utc};
 use chrono::{DateTime, Days, Utc};
 use serde::{Deserialize, Serialize};
@@ -294,14 +294,7 @@ impl From<ApiRate> for Rate {
 }
 
 // OCTOPUS CLIENT
-/// HTTP client for the Octopus Energy API.
-///
-/// Uses a shared `reqwest::Client` for connection pooling.
-static HTTP_CLIENT: std::sync::LazyLock<reqwest::Client> =
-    std::sync::LazyLock::new(build_http_client);
-
 pub struct OctopusClient {
-    http: reqwest::Client,
     config: ApiConfig,
 }
 
@@ -323,11 +316,8 @@ struct PaginatedFetchResult {
 
 impl OctopusClient {
     /// Creates a new client with the specified configuration.
-    pub fn with_config(config: ApiConfig) -> Self {
-        Self {
-            http: HTTP_CLIENT.clone(),
-            config,
-        }
+    pub const fn with_config(config: ApiConfig) -> Self {
+        Self { config }
     }
 
     /// Fetches Agile tariff rates.
@@ -373,7 +363,7 @@ impl OctopusClient {
 
     /// Executes a single fetch attempt.
     async fn fetch(&self, url: &str) -> Result<Vec<Rate>, AppError> {
-        let response = self.http.get(url);
+        let response = shared_http_client()?.get(url);
         let response = send_with_timeout(response).await?;
 
         let status = response.status();
@@ -398,7 +388,7 @@ impl OctopusClient {
     ) -> Result<PageFetchResult, AppError> {
         crate::services::retry::retry_with_backoff(
             || async {
-                let response = self.http.get(url);
+                let response = shared_http_client()?.get(url);
                 let response = send_with_timeout(response).await?;
 
                 let status = response.status();

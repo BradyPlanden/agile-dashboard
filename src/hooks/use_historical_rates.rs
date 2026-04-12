@@ -42,7 +42,7 @@ pub fn use_historical_rates() -> UseStateHandle<LoadState<Rates>> {
         let state = state.clone();
         let baseline_rates = baseline_rates.clone();
 
-        use_effect_with((), move |_| {
+        use_effect_with((), move |()| {
             let state = state.clone();
             let mut baseline_rates = baseline_rates.clone();
             let aborted = Rc::new(Cell::new(false));
@@ -84,12 +84,12 @@ pub fn use_historical_rates() -> UseStateHandle<LoadState<Rates>> {
                             }
                         }
                         Err(error) if !aborted_check.get() => {
-                            if !matches!(&*state, LoadState::Loaded(_)) {
-                                state.set(LoadState::Error(error.to_string()));
-                            } else {
+                            if matches!(&*state, LoadState::Loaded(_)) {
                                 warn(&format!(
                                     "Historical refresh failed, continuing to use cached banner data: {error}"
                                 ));
+                            } else {
+                                state.set(LoadState::Error(error.to_string()));
                             }
                         }
                         _ => {}

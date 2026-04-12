@@ -3,6 +3,9 @@ use futures::future::{Either, select};
 use futures::pin_mut;
 use gloo_timers::future::TimeoutFuture;
 
+static HTTP_CLIENT: std::sync::LazyLock<Result<reqwest::Client, AppError>> =
+    std::sync::LazyLock::new(build_http_client);
+
 /// Classify a reqwest error into an appropriate `AppError`.
 pub fn classify_reqwest_error(error: reqwest::Error) -> AppError {
     if error.is_timeout() {
@@ -29,10 +32,17 @@ pub fn error_for_status(status: reqwest::StatusCode, _body: &str) -> AppError {
 }
 
 /// Builds the shared `reqwest::Client` used by API services.
-pub fn build_http_client() -> reqwest::Client {
+fn build_http_client() -> Result<reqwest::Client, AppError> {
     reqwest::Client::builder()
         .build()
-        .expect("Failed to create shared HTTP client")
+        .map_err(|error| {
+            AppError::ConfigError(format!("Failed to create shared HTTP client: {error}"))
+        })
+}
+
+/// Returns the lazily constructed shared `reqwest::Client`.
+pub fn shared_http_client() -> Result<&'static reqwest::Client, AppError> {
+    HTTP_CLIENT.as_ref().map_err(std::clone::Clone::clone)
 }
 
 /// Sends a request with an application-level timeout that works on wasm.
