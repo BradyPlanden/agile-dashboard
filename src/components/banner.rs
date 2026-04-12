@@ -1,4 +1,6 @@
 use crate::utils::debounce::create_debounced_resize_observer;
+use crate::utils::svg::normalize_points;
+use std::rc::Rc;
 use web_sys::HtmlElement;
 use yew::prelude::*;
 
@@ -9,27 +11,7 @@ pub fn build_path(values: &[f64], width: f64, height: f64, padding: f64) -> Stri
         return String::new();
     }
 
-    let min = values.iter().copied().fold(f64::INFINITY, f64::min);
-    let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let range = if (max - min).abs() < 0.01 {
-        1.0 // Avoid division by zero for flat lines (threshold: 0.01p)
-    } else {
-        max - min
-    };
-
-    let points: Vec<(f64, f64)> = values
-        .iter()
-        .enumerate()
-        .map(|(i, &val)| {
-            let x = if values.len() > 1 {
-                (i as f64 / (values.len() - 1) as f64) * width
-            } else {
-                width / 2.0 // Center single point
-            };
-            let y = (1.0 - (val - min) / range).mul_add(2.0f64.mul_add(-padding, height), padding);
-            (x, y)
-        })
-        .collect();
+    let (points, _, _, _) = normalize_points(values, width, height, padding);
 
     // Build SVG path with line segments
     let mut path = format!("M {:.2},{:.2}", points[0].0, points[0].1);
@@ -50,27 +32,7 @@ pub fn build_smooth_path(values: &[f64], width: f64, height: f64, padding: f64) 
         return build_path(values, width, height, padding);
     }
 
-    let min = values.iter().copied().fold(f64::INFINITY, f64::min);
-    let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    let range = if (max - min).abs() < 0.01 {
-        1.0 // Avoid division by zero for flat lines (threshold: 0.01p)
-    } else {
-        max - min
-    };
-
-    let points: Vec<(f64, f64)> = values
-        .iter()
-        .enumerate()
-        .map(|(i, &val)| {
-            let x = if values.len() > 1 {
-                (i as f64 / (values.len() - 1) as f64) * width
-            } else {
-                width / 2.0 // Center single point
-            };
-            let y = padding + (1.0 - (val - min) / range) * (height - 2.0 * padding);
-            (x, y)
-        })
-        .collect();
+    let (points, _, _, _) = normalize_points(values, width, height, padding);
 
     let mut path = format!("M {:.2},{:.2}", points[0].0, points[0].1);
 
@@ -105,7 +67,7 @@ pub fn build_smooth_path(values: &[f64], width: f64, height: f64, padding: f64) 
 #[derive(Properties, PartialEq)]
 pub struct TraceBannerProps {
     /// Historical price values (31 days × 48 half-hours = ~1488 points)
-    pub values: Vec<f64>,
+    pub values: Rc<Vec<f64>>,
 
     /// Height in pixels
     #[prop_or(60)]
@@ -172,9 +134,9 @@ pub fn trace_banner(props: &TraceBannerProps) -> Html {
         (props.values.clone(), *viewbox_width, props.smooth),
         |(values, width, smooth)| {
             if *smooth {
-                build_smooth_path(values, *width, viewbox_height, padding)
+                build_smooth_path(values.as_slice(), *width, viewbox_height, padding)
             } else {
-                build_path(values, *width, viewbox_height, padding)
+                build_path(values.as_slice(), *width, viewbox_height, padding)
             }
         },
     );
