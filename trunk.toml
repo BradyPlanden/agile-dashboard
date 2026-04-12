@@ -1,6 +1,6 @@
 [build]
 target = "index.html"
-release = true
+public_url = "/"
 
 [tools]
 wasm-opt = ["-Oz", "--enable-mutable-globals"]

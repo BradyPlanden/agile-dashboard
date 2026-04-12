@@ -29,7 +29,28 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run clippy
-        run: cargo clippy --lib --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features --target wasm32-unknown-unknown -- -D warnings
+
+  trunk-build:
+    name: Trunk Production Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Install trunk
+        run: cargo install --locked trunk --version 0.21.14
+
+      - name: Build app with trunk
+        run: trunk build --release
 
   css-lint:
     name: CSS Linting

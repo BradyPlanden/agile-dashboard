@@ -31,10 +31,7 @@ jobs:
         uses: swatinem/rust-cache@v2
 
       - name: Install trunk
-        run: cargo install trunk
-
-      - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli
+        run: cargo install --locked trunk --version 0.21.14
 
       - name: Build with trunk
         run: trunk build --release
