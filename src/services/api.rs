@@ -2,6 +2,7 @@ use crate::models::{
     error::AppError,
     rates::{Rate, Rates, TrackerRates},
 };
+use crate::services::error::{build_http_client, error_for_status, send_with_timeout};
 use crate::utils::time::{london_date, london_midnight_utc};
 use chrono::{DateTime, Days, Utc};
 use serde::{Deserialize, Serialize};
@@ -208,7 +209,7 @@ impl ApiConfig {
         (start, end)
     }
 
-    /// calculate the historical period to acquire agile rates for
+    /// Calculate the historical period to acquire agile rates for
     fn calculate_historical_period(
         now: DateTime<Utc>,
         n_days: i64,
@@ -294,24 +295,23 @@ impl From<ApiRate> for Rate {
 
 // OCTOPUS CLIENT
 /// HTTP client for the Octopus Energy API.
+///
+/// Uses a shared `reqwest::Client` for connection pooling.
+static HTTP_CLIENT: std::sync::LazyLock<reqwest::Client> =
+    std::sync::LazyLock::new(build_http_client);
+
 pub struct OctopusClient {
     http: reqwest::Client,
     config: ApiConfig,
 }
 
 impl OctopusClient {
-    /// Creates a new client with default configuration.
-    pub fn new() -> Result<Self, AppError> {
-        Self::with_config(ApiConfig::default())
-    }
-
     /// Creates a new client with the specified configuration.
-    pub fn with_config(config: ApiConfig) -> Result<Self, AppError> {
-        let http = reqwest::Client::builder()
-            .build()
-            .map_err(|e| AppError::ConfigError(format!("Failed to create HTTP client: {e}")))?;
-
-        Ok(Self { http, config })
+    pub fn with_config(config: ApiConfig) -> Self {
+        Self {
+            http: HTTP_CLIENT.clone(),
+            config,
+        }
     }
 
     /// Fetches Agile tariff rates.
@@ -349,17 +349,13 @@ impl OctopusClient {
 
     /// Executes a single fetch attempt.
     async fn fetch(&self, url: &str) -> Result<Vec<Rate>, AppError> {
-        let response = self
-            .http
-            .get(url)
-            .send()
-            .await
-            .map_err(|e| self.classify_error(e))?;
+        let response = self.http.get(url);
+        let response = send_with_timeout(response).await?;
 
         let status = response.status();
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            return Err(self.error_for_status(status, &body));
+            return Err(error_for_status(status, &body));
         }
 
         let api_response: ApiResponse<ApiRate> = response
@@ -370,57 +366,43 @@ impl OctopusClient {
         Ok(api_response.results.into_iter().map(Into::into).collect())
     }
 
-    /// Fetches a single page with retry logic for 429 rate limit errors.
+    /// Executes a single page fetch with retry logic for rate-limited responses.
     /// Returns the rates and the next page URL if available.
     async fn fetch_page_with_retry(
         &self,
         url: &str,
     ) -> Result<(Vec<Rate>, Option<String>), AppError> {
-        use gloo_timers::future::TimeoutFuture;
+        crate::services::retry::retry_with_backoff(
+            || async {
+                let response = self.http.get(url);
+                let response = send_with_timeout(response).await?;
 
-        let mut retry_delay_ms = 100u32;
-        let max_retries = crate::config::Config::MAX_RETRY_ATTEMPTS;
+                let status = response.status();
 
-        for attempt in 0..max_retries {
-            let response = self
-                .http
-                .get(url)
-                .send()
-                .await
-                .map_err(|e| self.classify_error(e))?;
+                // Handle non-429 error statuses immediately
+                if !status.is_success() && status.as_u16() != 429 {
+                    let body = response.text().await.unwrap_or_default();
+                    return Err(error_for_status(status, &body));
+                }
 
-            let status = response.status();
+                // Successful response
+                if status.is_success() {
+                    let api_response: ApiResponse<ApiRate> =
+                        response.json().await.map_err(|e| {
+                            AppError::ApiError(format!("Failed to parse response: {e}"))
+                        })?;
 
-            // Handle rate limiting with exponential backoff
-            if status.as_u16() == 429 && attempt < max_retries - 1 {
-                gloo::console::warn!(format!(
-                    "Rate limited, retrying in {}ms (attempt {}/{})",
-                    retry_delay_ms,
-                    attempt + 1,
-                    max_retries
-                ));
-                TimeoutFuture::new(retry_delay_ms).await;
-                retry_delay_ms *= 5; // Exponential backoff: 100ms, 500ms, 2500ms
-                continue;
-            }
+                    let rates: Vec<Rate> =
+                        api_response.results.into_iter().map(Into::into).collect();
+                    return Ok((rates, validate_next_url(api_response.next.as_deref())));
+                }
 
-            // Handle other error statuses
-            if !status.is_success() {
-                let body = response.text().await.unwrap_or_default();
-                return Err(self.error_for_status(status, &body));
-            }
-
-            // Parse successful response
-            let api_response: ApiResponse<ApiRate> = response
-                .json()
-                .await
-                .map_err(|e| AppError::ApiError(format!("Failed to parse response: {e}")))?;
-
-            let rates: Vec<Rate> = api_response.results.into_iter().map(Into::into).collect();
-            return Ok((rates, api_response.next));
-        }
-
-        Err(AppError::RateLimited)
+                // 429 — will be retried by retry_with_backoff
+                Err(AppError::RateLimited)
+            },
+            crate::config::Config::MAX_RETRY_ATTEMPTS,
+        )
+        .await
     }
 
     /// Fetches data across multiple pages, following `next` links.
@@ -450,7 +432,7 @@ impl OctopusClient {
                     if all_rates.is_empty() {
                         return Err(e);
                     }
-                    gloo::console::warn!(format!(
+                    warn(&format!(
                         "Pagination stopped at page {} with error: {}. Returning {} records.",
                         page,
                         e,
@@ -463,55 +445,57 @@ impl OctopusClient {
 
         Ok(all_rates)
     }
+}
 
-    /// Converts a reqwest error into an appropriate `AppError`.
-    fn classify_error(&self, error: reqwest::Error) -> AppError {
-        if error.is_timeout() {
-            AppError::ApiError(format!("Request timeout: {error}"))
-        } else if error.is_request() {
-            AppError::ApiError(format!("Request error: {error}"))
-        } else {
-            AppError::ApiError(format!("Network error: {error}"))
-        }
-    }
-
-    /// Creates an error based on HTTP status code.
-    fn error_for_status(&self, status: reqwest::StatusCode, body: &str) -> AppError {
-        match status.as_u16() {
-            429 => AppError::RateLimited,
-            401 | 403 => AppError::AuthError(format!("Authentication failed: {status}")),
-            404 => AppError::NotFound(format!("Resource not found: {body}")),
-            400..=499 => AppError::ApiError(format!("Client error {status}: {body}")),
-            500..=599 => AppError::ApiError(format!("Server error {status}: {body}")),
-            _ => AppError::ApiError(format!("Unexpected status {status}: {body}")),
-        }
+/// Validates that a pagination URL targets the expected Octopus API host.
+///
+/// Prevents following arbitrary redirects from compromised or buggy API responses.
+fn validate_next_url(url: Option<&str>) -> Option<String> {
+    match url {
+        None => None,
+        Some(raw) => match reqwest::Url::parse(raw) {
+            Ok(parsed)
+                if parsed.scheme() == "https"
+                    && parsed.host_str() == Some("api.octopus.energy") =>
+            {
+                Some(parsed.into())
+            }
+            Ok(_) | Err(_) => {
+                warn(&format!(
+                    "Rejecting pagination URL with unexpected origin: {raw}"
+                ));
+                None
+            }
+        },
     }
 }
 
-impl Default for OctopusClient {
-    fn default() -> Self {
-        Self::new().expect("Failed to create default client")
-    }
+fn warn(message: &str) {
+    #[cfg(target_arch = "wasm32")]
+    gloo::console::warn!(message);
+
+    #[cfg(not(target_arch = "wasm32"))]
+    eprintln!("{message}");
 }
 
 // CONVENIENCE FUNCTIONS
 /// Fetches historical Agile rates (31 days) using default configuration.
 pub async fn fetch_historical_rates() -> Result<Rates, AppError> {
-    OctopusClient::new()?.fetch_agile_rates_historical().await
+    OctopusClient::with_config(ApiConfig::default())
+        .fetch_agile_rates_historical()
+        .await
 }
 
 /// Fetches Agile rates for a specific region.
 pub async fn fetch_rates_for_region(region: Region) -> Result<Rates, AppError> {
-    let config = ApiConfig::builder().region(region).build();
-    OctopusClient::with_config(config)?
+    OctopusClient::with_config(ApiConfig::builder().region(region).build())
         .fetch_agile_rates()
         .await
 }
 
 /// Fetches Tracker rates for a specific region.
 pub async fn fetch_tracker_rates_for_region(region: Region) -> Result<TrackerRates, AppError> {
-    let config = ApiConfig::builder().region(region).build();
-    OctopusClient::with_config(config)?
+    OctopusClient::with_config(ApiConfig::builder().region(region).build())
         .fetch_tracker_rates()
         .await
 }
@@ -646,5 +630,35 @@ mod tests {
         assert_eq!(response.results.len(), 2);
         assert_eq!(response.results[0].value_exc_vat, 10.5);
         assert_eq!(response.results[1].value_inc_vat, 12.6);
+    }
+
+    #[test]
+    fn test_validate_next_url_accepts_known_host() {
+        let url = Some(
+            "https://api.octopus.energy/v1/products/AGILE-24-10-01/standard-unit-rates/?page=2"
+                .to_string(),
+        );
+        let result = validate_next_url(url.as_deref());
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_validate_next_url_rejects_unknown_host() {
+        let url = Some("https://evil.example.com/api/data".to_string());
+        let result = validate_next_url(url.as_deref());
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_validate_next_url_rejects_http() {
+        let url = Some("http://api.octopus.energy/v1/products/?page=2".to_string());
+        let result = validate_next_url(url.as_deref());
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_validate_next_url_none() {
+        let result = validate_next_url(None);
+        assert!(result.is_none());
     }
 }

@@ -2,6 +2,8 @@ use crate::models::{
     carbon::{CarbonIntensity, CarbonIntensityData},
     error::AppError,
 };
+use crate::services::error::{build_http_client, error_for_status, send_with_timeout};
+use chrono::Utc;
 use serde::Deserialize;
 
 const CARBON_API_BASE: &str = "https://api.carbonintensity.org.uk";
@@ -12,39 +14,39 @@ struct CarbonApiResponse {
     data: Vec<CarbonIntensityData>,
 }
 
+/// A shared HTTP client used by all convenience functions to enable connection pooling.
+static HTTP_CLIENT: std::sync::LazyLock<reqwest::Client> =
+    std::sync::LazyLock::new(build_http_client);
+
 /// Client for the UK Carbon Intensity API
 pub struct CarbonIntensityClient {
     http: reqwest::Client,
     base_url: String,
 }
 
+impl Default for CarbonIntensityClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CarbonIntensityClient {
     /// Creates a new client with default configuration
-    pub fn new() -> Result<Self, AppError> {
-        let http = reqwest::Client::builder()
-            .build()
-            .map_err(|e| AppError::ConfigError(format!("Failed to create HTTP client: {e}")))?;
-
-        Ok(Self {
-            http,
+    pub fn new() -> Self {
+        Self {
+            http: HTTP_CLIENT.clone(),
             base_url: CARBON_API_BASE.to_string(),
-        })
+        }
     }
 
     /// Fetches current and next period carbon intensity for the UK
     pub async fn fetch_current_and_next_intensity(&self) -> Result<CarbonIntensity, AppError> {
-        use chrono::Utc;
-
         crate::services::retry::retry_with_backoff(
             || async {
                 let url = format!("{}/intensity/date", self.base_url);
 
-                let response = self
-                    .http
-                    .get(&url)
-                    .send()
-                    .await
-                    .map_err(|e| self.classify_error(e))?;
+                let response = self.http.get(&url);
+                let response = send_with_timeout(response).await?;
 
                 let status = response.status();
                 if !status.is_success() {
@@ -52,7 +54,7 @@ impl CarbonIntensityClient {
                         .text()
                         .await
                         .unwrap_or_else(|_| "<failed to read error body>".to_string());
-                    return Err(self.error_for_status(status, &body));
+                    return Err(error_for_status(status, &body));
                 }
 
                 let api_response: CarbonApiResponse = response
@@ -76,14 +78,14 @@ impl CarbonIntensityClient {
                     })?
                     .clone();
 
-                // Find the current time
+                // Find the current or upcoming forecast period.
+                // First try: the period that contains now (from <= now < to).
+                // Fallback: the next period that starts after now.
                 let next = api_response
                     .data
                     .iter()
-                    .find(|period| {
-                        // Period that follows now, or period containing now
-                        period.from > now || now < period.to
-                    })
+                    .find(|period| period.from <= now && period.to > now)
+                    .or_else(|| api_response.data.iter().find(|period| period.from > now))
                     .ok_or_else(|| {
                         AppError::DataError("No next period found in response".to_string())
                     })?
@@ -95,32 +97,11 @@ impl CarbonIntensityClient {
         )
         .await
     }
-
-    /// Converts a reqwest error into an appropriate `AppError`
-    fn classify_error(&self, error: reqwest::Error) -> AppError {
-        if error.is_timeout() {
-            AppError::ApiError(format!("Request timeout: {error}"))
-        } else if error.is_request() {
-            AppError::ApiError(format!("Request error: {error}"))
-        } else {
-            AppError::ApiError(format!("Network error: {error}"))
-        }
-    }
-
-    /// Creates an error based on HTTP status code
-    fn error_for_status(&self, status: reqwest::StatusCode, body: &str) -> AppError {
-        match status.as_u16() {
-            429 => AppError::RateLimited,
-            400..=499 => AppError::ApiError(format!("Client error {status}: {body}")),
-            500..=599 => AppError::ApiError(format!("Server error {status}: {body}")),
-            _ => AppError::ApiError(format!("Unexpected status {status}: {body}")),
-        }
-    }
 }
 
 /// Convenience function to fetch current and next period carbon intensity
 pub async fn fetch_carbon_intensity() -> Result<CarbonIntensity, AppError> {
-    CarbonIntensityClient::new()?
+    CarbonIntensityClient::new()
         .fetch_current_and_next_intensity()
         .await
 }
@@ -131,8 +112,7 @@ mod tests {
 
     #[test]
     fn test_client_creation() {
-        let client = CarbonIntensityClient::new();
-        assert!(client.is_ok());
+        let _client = CarbonIntensityClient::new();
     }
 
     #[test]

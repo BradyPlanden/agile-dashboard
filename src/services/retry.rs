@@ -33,7 +33,7 @@ where
         match operation().await {
             Ok(result) => return Ok(result),
             Err(AppError::RateLimited) if attempt < max_attempts => {
-                gloo::console::warn!(&format!(
+                warn(&format!(
                     "Rate limited, retrying in {}ms (attempt {}/{})",
                     delay_ms, attempt, max_attempts
                 ));
@@ -45,4 +45,12 @@ where
     }
 
     Err(AppError::RateLimited)
+}
+
+fn warn(message: &str) {
+    #[cfg(target_arch = "wasm32")]
+    gloo::console::warn!(message);
+
+    #[cfg(not(target_arch = "wasm32"))]
+    eprintln!("{message}");
 }
