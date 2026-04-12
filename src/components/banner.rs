@@ -35,7 +35,7 @@ pub fn build_path(values: &[f64], width: f64, height: f64, padding: f64) -> Stri
     let mut path = format!("M {:.2},{:.2}", points[0].0, points[0].1);
     for (x, y) in points.iter().skip(1) {
         use std::fmt::Write;
-        write!(path, " L {x:.2},{y:.2}").unwrap();
+        let _ = write!(path, " L {x:.2},{y:.2}");
     }
 
     path
@@ -92,12 +92,11 @@ pub fn build_smooth_path(values: &[f64], width: f64, height: f64, padding: f64) 
         let cp2x = p2.0 - (p3.0 - p1.0) / tension;
         let cp2y = p2.1 - (p3.1 - p1.1) / tension;
 
-        write!(
+        let _ = write!(
             path,
             " C {cp1x:.2},{cp1y:.2} {cp2x:.2},{cp2y:.2} {:.2},{:.2}",
             p2.0, p2.1
-        )
-        .unwrap();
+        );
     }
 
     path
