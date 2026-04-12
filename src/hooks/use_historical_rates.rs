@@ -27,7 +27,7 @@ struct HistoricalRatesCache {
 
 /// Hook that returns cached 31-day historical rates immediately, then refreshes in place.
 #[hook]
-pub fn use_historical_rates() -> UseStateHandle<LoadState<Rates>> {
+pub fn use_historical_rates() -> LoadState<Rates> {
     let state = use_state(|| {
         load_cached_historical_rates().map_or(LoadState::Loading, |rates| {
             LoadState::Loaded(Rc::new(rates))
@@ -111,7 +111,7 @@ pub fn use_historical_rates() -> UseStateHandle<LoadState<Rates>> {
         });
     }
 
-    state
+    (*state).clone()
 }
 
 fn load_cached_historical_rates() -> Option<Rates> {

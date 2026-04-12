@@ -73,7 +73,7 @@ fn app() -> Html {
                     </section>
 
                     {
-                        match &*tracker_state {
+                        match &tracker_state {
                             LoadState::Loading => html! {
                                 <section class="tracker-section">
                                     <h2>{"Tracker Electricity"}</h2>
@@ -103,7 +103,7 @@ fn app() -> Html {
 
                     // Carbon tracking
                     {
-                        match &*carbon_state {
+                        match &carbon_state {
                             LoadState::Loading => html! {
                                 <section class="carbon-section">
                                     <h2>{"Grid Carbon Intensity"}</h2>
@@ -130,7 +130,7 @@ fn app() -> Html {
             <footer class="app-footer">
                 <section class="status-section">
                     <h2>{"API Status"}</h2>
-                    <Status state={(*state).clone()} />
+                    <Status state={state.clone()} />
                 </section>
             </footer>
         </div>
