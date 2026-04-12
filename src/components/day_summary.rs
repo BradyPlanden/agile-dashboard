@@ -25,7 +25,7 @@ pub fn day_summary(props: &DaySummaryProps) -> Html {
             <div class="summary-grid">
                 <div class="summary-item">
                     <h3>{"Price Range"}</h3>
-                    <p class="summary-value">{&props.stats.price_range}</p>
+                    <p class="summary-value">{props.stats.to_string()}</p>
                 </div>
                 <div class="summary-item">
                     <h3>{"Average Price"}</h3>

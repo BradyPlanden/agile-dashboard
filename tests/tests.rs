@@ -108,7 +108,7 @@ mod tests {
         ];
 
         let rates = Rates::new(rates_vec);
-        let result = rates.series_data();
+        let result = rates.series_data_for_date(today);
 
         assert!(result.is_ok());
         let (x_data, y_data) = result.unwrap();
@@ -143,7 +143,7 @@ mod tests {
         ];
 
         let rates = Rates::new(rates_vec);
-        let result = rates.series_data();
+        let result = rates.series_data_for_date(london_today());
 
         assert!(result.is_ok());
         let (x_data, y_data) = result.unwrap();

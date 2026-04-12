@@ -1,3 +1,5 @@
+use std::fmt;
+
 use super::error::AppError;
 use crate::utils::time::{london_date, london_time, london_today};
 use chrono::{DateTime, Utc};
@@ -22,8 +24,13 @@ pub struct DayStats {
     pub min: f64,
     pub max: f64,
     pub avg: f64,
-    pub price_range: String,
     pub rate_count: usize,
+}
+
+impl fmt::Display for DayStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:.2}p - {:.2}p", self.min, self.max)
+    }
 }
 
 /// Combined stats including today/tomorrow + current/next
@@ -70,11 +77,7 @@ impl Rates {
         self.data.iter().filter(move |r| r.valid_from >= from)
     }
 
-    pub fn series_data(&self) -> Result<(Vec<String>, Vec<f64>), AppError> {
-        self.series_data_from(london_today())
-    }
-
-    fn series_data_from(
+    pub fn series_data_for_date(
         &self,
         start_of_today: chrono::NaiveDate,
     ) -> Result<(Vec<String>, Vec<f64>), AppError> {
@@ -130,14 +133,13 @@ impl Rates {
             min,
             max,
             avg,
-            price_range: format!("{min:.2}p - {max:.2}p"),
             rate_count: filtered_rates.len(),
         })
     }
 
-    /// Get comprehensive daily statistics (today + optional tomorrow)
-    pub fn daily_stats(&self) -> Result<DailyStats, AppError> {
-        let today = london_today();
+    /// Get comprehensive daily statistics for the given point in time.
+    pub fn daily_stats_at(&self, now: DateTime<Utc>) -> Result<DailyStats, AppError> {
+        let today = london_date(now);
         let tomorrow = today + chrono::Duration::days(1);
 
         let today_stats = self
@@ -146,8 +148,8 @@ impl Rates {
 
         let tomorrow_stats = self.stats_for_date(tomorrow);
 
-        let current = self.rate_at(Utc::now()).map_or(0.0, |r| r.value_inc_vat);
-        let next = self.next_rate(Utc::now()).map_or(0.0, |r| r.value_inc_vat);
+        let current = self.rate_at(now).map_or(0.0, |r| r.value_inc_vat);
+        let next = self.next_rate(now).map_or(0.0, |r| r.value_inc_vat);
 
         Ok(DailyStats {
             today: today_stats,
@@ -333,7 +335,7 @@ mod tests {
         assert_eq!(stats.min, 10.0);
         assert_eq!(stats.max, 20.0);
         assert_eq!(stats.avg, 15.0);
-        assert_eq!(stats.price_range, "10.00p - 20.00p");
+        assert_eq!(stats.to_string(), "10.00p - 20.00p");
         assert_eq!(stats.rate_count, 3);
     }
 
@@ -379,7 +381,8 @@ mod tests {
             },
         ]);
 
-        let daily_stats = rates.daily_stats().unwrap();
+        let now = today.and_hms_opt(12, 0, 0).unwrap().and_utc();
+        let daily_stats = rates.daily_stats_at(now).unwrap();
 
         assert_eq!(daily_stats.today.min, 10.0);
         assert!(daily_stats.tomorrow.is_some());
@@ -398,7 +401,8 @@ mod tests {
             valid_to: today.and_hms_opt(10, 30, 0).unwrap().and_utc(),
         }]);
 
-        let daily_stats = rates.daily_stats().unwrap();
+        let now = today.and_hms_opt(12, 0, 0).unwrap().and_utc();
+        let daily_stats = rates.daily_stats_at(now).unwrap();
 
         assert_eq!(daily_stats.today.min, 10.0);
         assert!(daily_stats.tomorrow.is_none());
@@ -474,7 +478,7 @@ mod tests {
             },
         ]);
 
-        let (x_data, y_data) = rates.series_data_from(spring_forward_day).unwrap();
+        let (x_data, y_data) = rates.series_data_for_date(spring_forward_day).unwrap();
 
         assert_eq!(y_data, vec![10.0, 12.0]);
         assert!(x_data.iter().any(|label| label.contains("00:00")));

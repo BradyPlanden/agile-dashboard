@@ -12,7 +12,7 @@ pub fn carbon_display(props: &CarbonDisplayProps) -> Html {
     let data = &props.data;
 
     // Last actual values
-    let latest_intensity = data.latest_intensity();
+    let latest_intensity = data.latest_value();
     let latest_source = if data.has_actual() {
         "Actual"
     } else {
@@ -28,7 +28,7 @@ pub fn carbon_display(props: &CarbonDisplayProps) -> Html {
     );
 
     // Next period values
-    let next_intensity = data.next_intensity();
+    let next_intensity = data.next_forecast();
     let next_index = data.next_index();
     let next_index_class = format!("carbon-index-badge {}", next_index.css_class());
     let (next_from, next_to) = data.next_period();

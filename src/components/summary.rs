@@ -1,5 +1,6 @@
 use crate::components::DaySummary;
 use crate::models::rates::Rates;
+use chrono::Utc;
 use std::rc::Rc;
 use yew::prelude::*;
 
@@ -10,9 +11,9 @@ pub struct SummaryProps {
 
 #[function_component(Summary)]
 pub fn summary(props: &SummaryProps) -> Html {
-    let daily_stats = use_memo(props.rates.clone(), |rates| rates.daily_stats());
+    let daily_stats = props.rates.daily_stats_at(Utc::now());
 
-    match &*daily_stats {
+    match daily_stats {
         Ok(stats) => html! {
             <div class="data-summary">
                 // Today's card (always shown)

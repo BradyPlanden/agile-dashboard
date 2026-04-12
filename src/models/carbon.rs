@@ -111,31 +111,28 @@ impl CarbonIntensityData {
 /// Container for current and next period carbon intensity data
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CarbonIntensity {
-    pub latest_intensity: CarbonIntensityData,
+    pub latest: CarbonIntensityData,
     pub next: CarbonIntensityData,
 }
 
 impl CarbonIntensity {
-    pub const fn new(latest_intensity: CarbonIntensityData, next: CarbonIntensityData) -> Self {
-        Self {
-            latest_intensity,
-            next,
-        }
+    pub const fn new(latest: CarbonIntensityData, next: CarbonIntensityData) -> Self {
+        Self { latest, next }
     }
 
-    /// Returns the last actual intensity
-    pub fn latest_intensity(&self) -> u32 {
-        self.latest_intensity.best_intensity()
+    /// Returns the last actual intensity value
+    pub fn latest_value(&self) -> u32 {
+        self.latest.best_intensity()
     }
 
     /// Returns the forecast intensity for the next period
-    pub const fn next_intensity(&self) -> u32 {
+    pub const fn next_forecast(&self) -> u32 {
         self.next.intensity.forecast
     }
 
     /// Returns the intensity index for the current period
     pub const fn latest_index(&self) -> IntensityIndex {
-        self.latest_intensity.intensity.index
+        self.latest.intensity.index
     }
 
     /// Returns the intensity index for the next period
@@ -145,7 +142,7 @@ impl CarbonIntensity {
 
     /// Returns the time range (from, to) for the current period
     pub const fn latest_period(&self) -> (DateTime<Utc>, DateTime<Utc>) {
-        (self.latest_intensity.from, self.latest_intensity.to)
+        (self.latest.from, self.latest.to)
     }
 
     /// Returns the time range (from, to) for the next period
@@ -155,11 +152,11 @@ impl CarbonIntensity {
 
     /// Returns the change in intensity between current and next period
     pub fn intensity_change(&self) -> i32 {
-        self.next_intensity().cast_signed() - self.latest_intensity().cast_signed()
+        self.next_forecast().cast_signed() - self.latest_value().cast_signed()
     }
 
     /// Returns whether the current period has actual data
     pub const fn has_actual(&self) -> bool {
-        self.latest_intensity.has_actual()
+        self.latest.has_actual()
     }
 }

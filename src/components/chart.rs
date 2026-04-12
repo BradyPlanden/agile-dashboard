@@ -14,6 +14,7 @@ use web_sys::HtmlElement;
 use yew::prelude::*;
 
 use crate::models::rates::Rates;
+use crate::utils::time::london_today;
 
 const CHART_ID: &str = "energy-chart";
 
@@ -27,7 +28,7 @@ pub struct ChartProps {
 pub fn chart(props: &ChartProps) -> Html {
     let container_ref = use_node_ref();
     let chart_instance = use_mut_ref(|| None::<Echarts>);
-    let series_data = use_memo(props.rates.clone(), |rates| rates.series_data());
+    let series_data = props.rates.series_data_for_date(london_today());
 
     {
         let container_ref = container_ref.clone();
@@ -75,7 +76,7 @@ pub fn chart(props: &ChartProps) -> Html {
     }
 
     // Calculate min/max for accessibility description
-    let (min_price, max_price) = match &*series_data {
+    let (min_price, max_price) = match &series_data {
         Ok((_, y_data)) if !y_data.is_empty() => {
             let min = y_data.iter().copied().fold(f64::INFINITY, f64::min);
             let max = y_data.iter().copied().fold(f64::NEG_INFINITY, f64::max);
