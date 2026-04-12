@@ -13,7 +13,7 @@ use components::status::Status;
 use components::summary::Summary;
 use components::tracker_display::TrackerDisplay;
 use components::{CarbonDisplay, CheapestPeriod, RegionSelector, ThemeToggle, TraceBanner};
-use hooks::use_carbon::{CarbonDataState, use_carbon_intensity};
+use hooks::use_carbon::use_carbon_intensity;
 use hooks::use_historical_rates::use_historical_rates;
 use hooks::use_rates::use_rates;
 use hooks::use_region::use_region;
@@ -54,7 +54,7 @@ fn app() -> Html {
                     if !banner_values.is_empty() {
                         <section class="banner-section">
                             <TraceBanner
-                                values={(*banner_values).clone()}
+                                values={banner_values.clone()}
                                 height={100}
                                 stroke_width={2.0}
                                 smooth={true}
@@ -130,10 +130,6 @@ fn app() -> Html {
                     <Status state={(*state).clone()} />
                 </section>
             </footer>
-
-            <style>
-                {include_str!("style.css")}
-            </style>
         </div>
     }
 }

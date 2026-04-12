@@ -1,38 +1,33 @@
 use chrono::{Duration, DurationRound, Utc};
+use std::rc::Rc;
 use yew::prelude::*;
 
-use crate::hooks::use_rates::{DataState, use_rates};
-use crate::hooks::use_region::use_region;
+use crate::models::rates::Rates;
 use crate::utils::time::london_time;
 
-/// Displays the cheapest electricity period in the next 3 hours
+#[derive(Properties, PartialEq)]
+pub struct CheapestPeriodProps {
+    pub rates: Option<Rc<Rates>>,
+}
+
+/// Displays the cheapest electricity period in the next 3 hours.
 #[function_component(CheapestPeriod)]
-pub fn cheapest_period() -> Html {
-    let region_handle = use_region();
-    let state = use_rates(region_handle.region);
-
-    let cheapest_time = match &*state {
-        DataState::Loaded(rates) => {
-            let now = Utc::now();
-            let window_start = now
-                .duration_trunc(Duration::minutes(30))
-                .expect("30 minutes is a valid truncation duration");
-            let three_hours_later = now + Duration::hours(3);
-
-            // Find the cheapest rate in the next 3 hours (including current window)
-            let cheapest = rates
-                .filter_from(window_start) // Use window_start instead of now
-                .take_while(|r| r.valid_from < three_hours_later)
-                .min_by(|a, b| {
-                    a.value_inc_vat
-                        .partial_cmp(&b.value_inc_vat)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-
-            cheapest.map(|rate| london_time(rate.valid_from).format("%H:%M").to_string())
-        }
-        _ => None,
+pub fn cheapest_period(props: &CheapestPeriodProps) -> Html {
+    let Some(rates) = props.rates.as_ref() else {
+        return html! {};
     };
+
+    let now = Utc::now();
+    let window_start = now
+        .duration_trunc(Duration::minutes(30))
+        .expect("30 minutes is a valid truncation duration");
+    let three_hours_later = now + Duration::hours(3);
+
+    let cheapest_time = rates
+        .filter_from(window_start)
+        .take_while(|rate| rate.valid_from < three_hours_later)
+        .min_by(|a, b| a.value_inc_vat.total_cmp(&b.value_inc_vat))
+        .map(|rate| london_time(rate.valid_from).format("%H:%M").to_string());
 
     match cheapest_time {
         Some(time) => html! {
