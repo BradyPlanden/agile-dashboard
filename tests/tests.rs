@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use agile_dashboard::hooks::use_rates::DataState;
     use agile_dashboard::models::{
         error::AppError,
+        load_state::LoadState,
         rates::{Rate, Rates, TrackerRates},
     };
     use agile_dashboard::utils::time::{london_midnight_utc, london_today};
@@ -155,37 +155,37 @@ mod tests {
         assert!(x_data[1].contains("00:30"));
     }
 
-    // ===== DataState Tests =====
+    // ===== LoadState Tests =====
 
     #[test]
     fn test_data_state_data_extraction() {
         let rates = Rc::new(Rates::new(create_test_rates()));
-        let loaded = DataState::Loaded(rates.clone());
+        let loaded = LoadState::Loaded(rates.clone());
 
         assert!(loaded.data().is_some());
         assert_eq!(loaded.data().unwrap(), &rates);
 
-        let loading = DataState::Loading;
+        let loading: LoadState<Rates> = LoadState::Loading;
         assert!(loading.data().is_none());
 
-        let error = DataState::Error("Test error".to_string());
+        let error: LoadState<Rates> = LoadState::Error("Test error".to_string());
         assert!(error.data().is_none());
     }
 
     #[test]
     fn test_data_state_equality() {
-        let state1 = DataState::Loading;
-        let state2 = DataState::Loading;
+        let state1: LoadState<Rates> = LoadState::Loading;
+        let state2: LoadState<Rates> = LoadState::Loading;
         assert_eq!(state1, state2);
 
-        let state3 = DataState::Error("Test error".to_string());
-        let state4 = DataState::Error("Test error".to_string());
+        let state3: LoadState<Rates> = LoadState::Error("Test error".to_string());
+        let state4: LoadState<Rates> = LoadState::Error("Test error".to_string());
         assert_eq!(state3, state4);
 
         let rates1 = Rc::new(Rates::new(create_test_rates()));
         let rates2 = Rc::new(Rates::new(create_test_rates()));
-        let state5 = DataState::Loaded(rates1);
-        let state6 = DataState::Loaded(rates2);
+        let state5 = LoadState::Loaded(rates1);
+        let state6 = LoadState::Loaded(rates2);
         assert_eq!(state5, state6);
     }
 

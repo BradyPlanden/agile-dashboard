@@ -7,6 +7,7 @@ mod models;
 mod services;
 mod utils;
 
+use crate::models::load_state::LoadState;
 use components::chart::Chart;
 use components::status::Status;
 use components::summary::Summary;
@@ -41,7 +42,7 @@ fn app() -> Html {
     html! {
         <div class="app-container">
             <header class="app-header">
-                <CheapestPeriod />
+                <CheapestPeriod rates={state.data().cloned()} />
                 <h1>{"Octopus Agile Dashboard"}</h1>
                 <RegionSelector region={region} on_change={region_handle.set_region.clone()} />
                 <ThemeToggle />
@@ -70,19 +71,19 @@ fn app() -> Html {
 
                     {
                         match &*tracker_state {
-                            hooks::use_tracker::TrackerDataState::Loading => html! {
+                            LoadState::Loading => html! {
                                 <section class="tracker-section">
                                     <h2>{"Tracker Electricity"}</h2>
                                     <p>{"Loading tracker data..."}</p>
                                 </section>
                             },
-                            hooks::use_tracker::TrackerDataState::Loaded(tracker_rates) => html! {
+                            LoadState::Loaded(tracker_rates) => html! {
                                 <section class="tracker-section">
                                     <h2>{"Tracker Electricity"}</h2>
                                     <TrackerDisplay rates={tracker_rates.clone()} />
                                 </section>
                             },
-                            hooks::use_tracker::TrackerDataState::Error(err) => html! {
+                            LoadState::Error(err) => html! {
                                 <section class="tracker-section">
                                     <h2>{"Tracker Electricity"}</h2>
                                     <p class="error">{format!("Error loading tracker data: {}", err)}</p>
@@ -100,19 +101,19 @@ fn app() -> Html {
                     // Carbon tracking
                     {
                         match &*carbon_state {
-                            CarbonDataState::Loading => html! {
+                            LoadState::Loading => html! {
                                 <section class="carbon-section">
                                     <h2>{"Grid Carbon Intensity"}</h2>
                                     <p>{"Loading carbon intensity data..."}</p>
                                 </section>
                             },
-                            CarbonDataState::Loaded(carbon_data) => html! {
+                            LoadState::Loaded(carbon_data) => html! {
                                 <section class="carbon-section">
                                     <h2>{"Grid Carbon Intensity"}</h2>
                                     <CarbonDisplay data={carbon_data.clone()} />
                                 </section>
                             },
-                            CarbonDataState::Error(err) => html! {
+                            LoadState::Error(err) => html! {
                                 <section class="carbon-section">
                                     <h2>{"Grid Carbon Intensity"}</h2>
                                     <p class="error">{format!("Error loading carbon data: {}", err)}</p>
