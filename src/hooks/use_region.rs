@@ -37,14 +37,16 @@ pub fn use_region() -> RegionHandle {
     }
 }
 
-/// Load region preference from localStorage
+/// Load region preference from localStorage, validating the deserialized value.
 fn load_region_preference() -> Option<Region> {
-    gloo_storage::LocalStorage::get("region").ok()
+    let raw: String = gloo_storage::LocalStorage::get("region").ok()?;
+    // Parse through FromStr to validate — rejects arbitrary strings
+    raw.parse::<Region>().ok()
 }
 
 /// Save region preference to localStorage
 fn save_region_preference(region: Region) {
-    if let Err(e) = gloo_storage::LocalStorage::set("region", region) {
+    if let Err(e) = gloo_storage::LocalStorage::set("region", region.code()) {
         web_sys::console::warn_1(&format!("Failed to save region: {e:?}").into());
     }
 }

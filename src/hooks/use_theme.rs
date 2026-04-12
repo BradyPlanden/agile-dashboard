@@ -12,6 +12,25 @@ pub enum Theme {
     Auto, // Follow system preference
 }
 
+impl Theme {
+    const fn storage_value(self) -> &'static str {
+        match self {
+            Self::Light => "light",
+            Self::Dark => "dark",
+            Self::Auto => "auto",
+        }
+    }
+
+    fn from_storage_value(value: &str) -> Option<Self> {
+        match value {
+            "light" => Some(Self::Light),
+            "dark" => Some(Self::Dark),
+            "auto" => Some(Self::Auto),
+            _ => None,
+        }
+    }
+}
+
 /// Handle returned by `use_theme` hook
 #[derive(Clone, PartialEq)]
 pub struct ThemeHandle {
@@ -117,8 +136,15 @@ fn apply_theme_to_dom(theme: Theme) {
 
 /// Load theme preference from localStorage
 fn load_theme_preference() -> Option<Theme> {
-    if let Ok(theme) = gloo_storage::LocalStorage::get("theme") {
-        Some(theme)
+    if let Ok(raw) = gloo_storage::LocalStorage::get::<String>("theme") {
+        if let Some(theme) = Theme::from_storage_value(&raw) {
+            Some(theme)
+        } else {
+            web_sys::console::warn_1(
+                &format!("Ignoring invalid theme preference in localStorage: {raw}").into(),
+            );
+            None
+        }
     } else {
         web_sys::console::warn_1(
             &"localStorage unavailable or read failed, using default theme".into(),
@@ -129,7 +155,7 @@ fn load_theme_preference() -> Option<Theme> {
 
 /// Save theme preference to localStorage
 fn save_theme_preference(theme: Theme) {
-    if let Err(e) = gloo_storage::LocalStorage::set("theme", theme) {
+    if let Err(e) = gloo_storage::LocalStorage::set("theme", theme.storage_value()) {
         web_sys::console::warn_1(&format!("Failed to save theme: {e:?}").into());
     }
 }
