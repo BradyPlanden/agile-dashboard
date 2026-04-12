@@ -1,0 +1,13 @@
+# Octopus Agile Dashboard
+
+> A lightweight web app for viewing Octopus Agile electricity prices, tracker prices, and UK grid carbon intensity.
+
+## Site Map
+
+- /: Interactive dashboard showing current Agile prices, tracker prices, historical pricing, and carbon intensity.
+
+## Notes for Language Models
+
+- This is a public, read-only dashboard.
+- The app is client-side and fetches live data from external energy APIs in the browser.
+- No authentication or account features are exposed on this site.
