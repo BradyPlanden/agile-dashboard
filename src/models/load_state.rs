@@ -87,7 +87,7 @@ where
 pub fn use_polling_with_key<T, F, Fut, K>(fetch_fn: F, key: K) -> UseStateHandle<LoadState<T>>
 where
     T: Clone + PartialEq + 'static,
-    K: PartialEq + 'static,
+    K: Clone + PartialEq + 'static,
     F: Fn() -> Fut + 'static,
     Fut: std::future::Future<Output = Result<T, crate::models::error::AppError>> + 'static,
 {
@@ -103,15 +103,22 @@ where
 
     {
         let state = state.clone();
+        let key = key.clone();
+
+        use_effect_with(key, move |_| {
+            state.set(LoadState::Loading);
+            || ()
+        });
+    }
+
+    {
+        let state = state.clone();
 
         use_effect_with((trigger_value, key), move |(_, _key)| {
             let state = state.clone();
             let trigger = trigger;
             let aborted = Rc::new(Cell::new(false));
             let aborted_check = aborted.clone();
-
-            // Reset to loading when key changes
-            state.set(LoadState::Loading);
 
             spawn_local(async move {
                 match fetch_fn().await {
