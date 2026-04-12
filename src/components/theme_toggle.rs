@@ -1,21 +1,25 @@
 use yew::prelude::*;
 
-use crate::hooks::use_theme::{Theme, use_theme};
+use crate::hooks::use_theme::Theme;
+
+#[derive(Properties, PartialEq)]
+pub struct ThemeToggleProps {
+    pub effective_theme: Theme,
+    pub on_toggle: Callback<()>,
+}
 
 /// Theme toggle button component
 #[function_component(ThemeToggle)]
-pub fn theme_toggle() -> Html {
-    let theme_handle = use_theme();
-
+pub fn theme_toggle(props: &ThemeToggleProps) -> Html {
     // Determine icon and label based on effective theme
-    let (icon, label) = match theme_handle.effective_theme {
+    let (icon, label) = match props.effective_theme {
         Theme::Dark => ("☀️", "Switch to light mode"),
         Theme::Light => ("🌙", "Switch to dark mode"),
-        Theme::Auto => ("🌓", "Auto theme"), // Exhaustive match: shouldn't happen since effective_theme is resolved
+        Theme::Auto => ("🌓", "Auto theme"),
     };
 
     let onclick = {
-        let toggle = theme_handle.toggle;
+        let toggle = props.on_toggle.clone();
         Callback::from(move |_| toggle.emit(()))
     };
 
@@ -24,7 +28,7 @@ pub fn theme_toggle() -> Html {
             class="theme-toggle"
             {onclick}
             aria-label={label}
-            aria-pressed={if theme_handle.effective_theme == Theme::Dark { "true" } else { "false" }}
+            aria-pressed={if props.effective_theme == Theme::Dark { "true" } else { "false" }}
             title={label}
         >
             <span aria-hidden="true">{icon}</span>

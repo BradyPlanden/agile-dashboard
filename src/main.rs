@@ -45,7 +45,10 @@ fn app() -> Html {
                 <CheapestPeriod rates={state.data().cloned()} />
                 <h1>{"Octopus Agile Dashboard"}</h1>
                 <RegionSelector region={region} on_change={region_handle.set_region.clone()} />
-                <ThemeToggle />
+                <ThemeToggle
+                    effective_theme={theme_handle.effective_theme}
+                    on_toggle={theme_handle.toggle.clone()}
+                />
             </header>
 
             <main class="app-main">
