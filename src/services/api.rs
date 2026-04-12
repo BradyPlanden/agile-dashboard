@@ -305,6 +305,22 @@ pub struct OctopusClient {
     config: ApiConfig,
 }
 
+pub struct HistoricalRatesFetchResult {
+    pub rates: Rates,
+    pub complete: bool,
+}
+
+struct PageFetchResult {
+    rates: Vec<Rate>,
+    next_url: Option<String>,
+    next_rejected: bool,
+}
+
+struct PaginatedFetchResult {
+    rates: Vec<Rate>,
+    complete: bool,
+}
+
 impl OctopusClient {
     /// Creates a new client with the specified configuration.
     pub fn with_config(config: ApiConfig) -> Self {
@@ -322,13 +338,21 @@ impl OctopusClient {
         Ok(Rates::new(rates))
     }
 
-    /// Fetches historical Agile tariff rates (31 days).
-    pub async fn fetch_agile_rates_historical(&self) -> Result<Rates, AppError> {
+    /// Fetches historical Agile tariff rates (31 days), publishing intermediate snapshots.
+    pub async fn fetch_agile_rates_historical_progressive<F>(
+        &self,
+        on_progress: F,
+    ) -> Result<HistoricalRatesFetchResult, AppError>
+    where
+        F: FnMut(Rates),
+    {
         let url = self.config.agile_url_historical(Utc::now(), 31);
 
-        // Use paginated fetch to get all historical data
-        let rates = self.fetch_paginated(&url).await?;
-        Ok(Rates::new(rates))
+        let result = self.fetch_paginated_with_progress(&url, on_progress).await?;
+        Ok(HistoricalRatesFetchResult {
+            rates: Rates::new(result.rates),
+            complete: result.complete,
+        })
     }
 
     /// Fetches Tracker tariff rates.
@@ -371,7 +395,7 @@ impl OctopusClient {
     async fn fetch_page_with_retry(
         &self,
         url: &str,
-    ) -> Result<(Vec<Rate>, Option<String>), AppError> {
+    ) -> Result<PageFetchResult, AppError> {
         crate::services::retry::retry_with_backoff(
             || async {
                 let response = self.http.get(url);
@@ -392,9 +416,14 @@ impl OctopusClient {
                             AppError::ApiError(format!("Failed to parse response: {e}"))
                         })?;
 
+                    let next_page = sanitize_next_url(api_response.next);
                     let rates: Vec<Rate> =
                         api_response.results.into_iter().map(Into::into).collect();
-                    return Ok((rates, validate_next_url(api_response.next.as_deref())));
+                    return Ok(PageFetchResult {
+                        rates,
+                        next_url: next_page.url,
+                        next_rejected: next_page.rejected,
+                    });
                 }
 
                 // 429 — will be retried by retry_with_backoff
@@ -406,20 +435,40 @@ impl OctopusClient {
     }
 
     /// Fetches data across multiple pages, following `next` links.
-    /// Returns accumulated data even if later pages fail (partial success).
-    async fn fetch_paginated(&self, initial_url: &str) -> Result<Vec<Rate>, AppError> {
+    /// Publishes accumulated snapshots as pages arrive and returns partial data if later pages fail.
+    async fn fetch_paginated_with_progress<F>(
+        &self,
+        initial_url: &str,
+        mut on_progress: F,
+    ) -> Result<PaginatedFetchResult, AppError>
+    where
+        F: FnMut(Rates),
+    {
         use gloo_timers::future::TimeoutFuture;
 
         let mut all_rates = Vec::new();
         let mut next_url = Some(initial_url.to_string());
         let mut page = 1;
+        let mut complete = true;
 
         while let Some(url) = next_url {
             // Fetch current page with retry logic
             match self.fetch_page_with_retry(&url).await {
-                Ok((rates, next)) => {
-                    all_rates.extend(rates);
-                    next_url = next;
+                Ok(page_result) => {
+                    all_rates.extend(page_result.rates);
+                    on_progress(Rates::new(all_rates.clone()));
+
+                    if page_result.next_rejected {
+                        warn(&format!(
+                            "Pagination stopped at page {} because the next link was rejected. Returning {} records.",
+                            page,
+                            all_rates.len()
+                        ));
+                        complete = false;
+                        break;
+                    }
+
+                    next_url = page_result.next_url;
 
                     // Rate limiting delay between pages (except on last page)
                     if next_url.is_some() {
@@ -438,12 +487,16 @@ impl OctopusClient {
                         e,
                         all_rates.len()
                     ));
+                    complete = false;
                     break;
                 }
             }
         }
 
-        Ok(all_rates)
+        Ok(PaginatedFetchResult {
+            rates: all_rates,
+            complete,
+        })
     }
 }
 
@@ -470,6 +523,17 @@ fn validate_next_url(url: Option<&str>) -> Option<String> {
     }
 }
 
+struct SanitizedNextUrl {
+    url: Option<String>,
+    rejected: bool,
+}
+
+fn sanitize_next_url(raw_next: Option<String>) -> SanitizedNextUrl {
+    let url = validate_next_url(raw_next.as_deref());
+    let rejected = raw_next.is_some() && url.is_none();
+    SanitizedNextUrl { url, rejected }
+}
+
 fn warn(message: &str) {
     #[cfg(target_arch = "wasm32")]
     gloo::console::warn!(message);
@@ -479,10 +543,15 @@ fn warn(message: &str) {
 }
 
 // CONVENIENCE FUNCTIONS
-/// Fetches historical Agile rates (31 days) using default configuration.
-pub async fn fetch_historical_rates() -> Result<Rates, AppError> {
+/// Fetches historical Agile rates (31 days), publishing progressive snapshots as pages arrive.
+pub async fn fetch_historical_rates_progressive<F>(
+    on_progress: F,
+) -> Result<HistoricalRatesFetchResult, AppError>
+where
+    F: FnMut(Rates),
+{
     OctopusClient::with_config(ApiConfig::default())
-        .fetch_agile_rates_historical()
+        .fetch_agile_rates_historical_progressive(on_progress)
         .await
 }
 
@@ -660,5 +729,19 @@ mod tests {
     fn test_validate_next_url_none() {
         let result = validate_next_url(None);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_sanitize_next_url_marks_rejected_links_incomplete() {
+        let result = sanitize_next_url(Some("https://evil.example.com/page=2".to_string()));
+        assert!(result.url.is_none());
+        assert!(result.rejected);
+    }
+
+    #[test]
+    fn test_sanitize_next_url_allows_absent_links() {
+        let result = sanitize_next_url(None);
+        assert!(result.url.is_none());
+        assert!(!result.rejected);
     }
 }

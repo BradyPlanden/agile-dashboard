@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt;
 
 use super::error::AppError;
@@ -13,7 +14,7 @@ pub struct Rate {
     pub valid_to: DateTime<Utc>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Rates {
     data: Vec<Rate>,
 }
@@ -52,6 +53,32 @@ impl Rates {
     /// Extract all price values in chronological order (sorted by `valid_from`)
     pub fn all_values(&self) -> Vec<f64> {
         self.data.iter().map(|r| r.value_inc_vat).collect()
+    }
+
+    /// Merge another set of rates into this one, replacing matching time slots.
+    pub fn merged_with(&self, newer: &Self) -> Self {
+        let mut slots = BTreeMap::new();
+
+        for rate in &self.data {
+            slots.insert((rate.valid_from, rate.valid_to), rate.clone());
+        }
+
+        for rate in &newer.data {
+            slots.insert((rate.valid_from, rate.valid_to), rate.clone());
+        }
+
+        Self::new(slots.into_values().collect())
+    }
+
+    /// Restrict rates to a closed-open UTC window.
+    pub fn within_window(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Self {
+        Self::new(
+            self.data
+                .iter()
+                .filter(|rate| rate.valid_from >= start && rate.valid_to <= end)
+                .cloned()
+                .collect(),
+        )
     }
 
     /// Find the rate valid at a specific time using binary search
@@ -356,6 +383,74 @@ mod tests {
 
         // stats_for_date(today) should return None
         assert!(rates.stats_for_date(today).is_none());
+    }
+
+    #[test]
+    fn test_merged_with_replaces_matching_slots_and_preserves_rest() {
+        let older = Rates::new(vec![
+            Rate {
+                value_inc_vat: 10.0,
+                value_exc_vat: 8.33,
+                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 0, 30, 0).unwrap(),
+            },
+            Rate {
+                value_inc_vat: 20.0,
+                value_exc_vat: 16.67,
+                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 0, 30, 0).unwrap(),
+                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 1, 0, 0).unwrap(),
+            },
+        ]);
+
+        let newer = Rates::new(vec![
+            Rate {
+                value_inc_vat: 12.0,
+                value_exc_vat: 10.0,
+                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 0, 30, 0).unwrap(),
+                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 1, 0, 0).unwrap(),
+            },
+            Rate {
+                value_inc_vat: 30.0,
+                value_exc_vat: 25.0,
+                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 1, 0, 0).unwrap(),
+                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 1, 30, 0).unwrap(),
+            },
+        ]);
+
+        let merged = older.merged_with(&newer);
+
+        assert_eq!(merged.all_values(), vec![10.0, 12.0, 30.0]);
+    }
+
+    #[test]
+    fn test_within_window_drops_out_of_range_slots() {
+        let rates = Rates::new(vec![
+            Rate {
+                value_inc_vat: 10.0,
+                value_exc_vat: 8.33,
+                valid_from: Utc.with_ymd_and_hms(2024, 1, 14, 23, 30, 0).unwrap(),
+                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            },
+            Rate {
+                value_inc_vat: 20.0,
+                value_exc_vat: 16.67,
+                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 0, 30, 0).unwrap(),
+            },
+            Rate {
+                value_inc_vat: 30.0,
+                value_exc_vat: 25.0,
+                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 23, 30, 0).unwrap(),
+                valid_to: Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
+            },
+        ]);
+
+        let filtered = rates.within_window(
+            Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
+        );
+
+        assert_eq!(filtered.all_values(), vec![20.0, 30.0]);
     }
 
     #[test]
