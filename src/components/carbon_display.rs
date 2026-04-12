@@ -1,4 +1,5 @@
 use crate::models::carbon::CarbonIntensity;
+use crate::utils::time::london_time;
 use std::rc::Rc;
 use yew::prelude::*;
 
@@ -21,22 +22,14 @@ pub fn carbon_display(props: &CarbonDisplayProps) -> Html {
     let latest_index = data.latest_index();
     let latest_index_class = format!("carbon-index-badge {}", latest_index.css_class());
     let (latest_from, latest_to) = data.latest_period();
-    let latest_time_period = format!(
-        "{} - {}",
-        latest_from.format("%H:%M"),
-        latest_to.format("%H:%M")
-    );
+    let latest_time_period = format_period(latest_from, latest_to);
 
     // Next period values
     let next_intensity = data.next_forecast();
     let next_index = data.next_index();
     let next_index_class = format!("carbon-index-badge {}", next_index.css_class());
     let (next_from, next_to) = data.next_period();
-    let next_time_period = format!(
-        "{} - {}",
-        next_from.format("%H:%M"),
-        next_to.format("%H:%M")
-    );
+    let next_time_period = format_period(next_from, next_to);
 
     // Trend indicator
     let intensity_change = data.intensity_change();
@@ -112,5 +105,27 @@ pub fn carbon_display(props: &CarbonDisplayProps) -> Html {
                 </div>
             </div>
         </div>
+    }
+}
+
+fn format_period(from: chrono::DateTime<chrono::Utc>, to: chrono::DateTime<chrono::Utc>) -> String {
+    format!(
+        "{} - {}",
+        london_time(from).format("%H:%M"),
+        london_time(to).format("%H:%M")
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_period;
+    use chrono::{TimeZone, Utc};
+
+    #[test]
+    fn formats_carbon_periods_in_london_time_during_bst() {
+        let from = Utc.with_ymd_and_hms(2026, 4, 12, 14, 0, 0).unwrap();
+        let to = Utc.with_ymd_and_hms(2026, 4, 12, 14, 30, 0).unwrap();
+
+        assert_eq!(format_period(from, to), "15:00 - 15:30");
     }
 }
