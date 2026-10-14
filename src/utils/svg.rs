@@ -175,6 +175,6 @@ mod tests {
         let path = smooth_path(&[(0.0, 0.0), (1.0, 1.0), (2.0, 0.0)]);
         assert!(path.starts_with("M0.0,0.0"));
         assert_eq!(path.matches('C').count(), 2);
-        assert!(smooth_path(&[]).is_empty());
+        assert_eq!(smooth_path(&[]), "");
     }
 }

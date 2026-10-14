@@ -313,7 +313,7 @@ mod tests {
             "Half-hourly prices from Wednesday 00:00 to Wednesday 01:30: lowest 5.00p at 00:30, \
              highest 35.00p at 01:00, average 20.00p."
         );
-        assert!(describe(&[]).is_empty());
+        assert_eq!(describe(&[]), "");
     }
 
     #[test]
