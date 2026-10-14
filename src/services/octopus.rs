@@ -80,15 +80,23 @@ async fn fetch_unit_rates(url: String) -> Result<Rates, AppError> {
     while let Some(url) = next {
         let page: Page = http::get_json(&url).await?;
         rates.extend(page.results);
-        next = page.next.filter(|url| {
-            let trusted = is_trusted_page_url(url);
-            if !trusted {
-                log::warn(&format!("Ignoring pagination link to untrusted URL: {url}"));
-            }
-            trusted
-        });
+        next = next_page(page.next)?;
     }
     Ok(Rates::new(rates))
+}
+
+/// The next page to fetch. A link that leaves the Octopus API is an error rather than the
+/// end of the data, so the pages already fetched are never mistaken for a complete result.
+fn next_page(next: Option<String>) -> Result<Option<String>, AppError> {
+    match next {
+        Some(url) if !is_trusted_page_url(&url) => {
+            log::warn(&format!("Refusing pagination link to untrusted URL: {url}"));
+            Err(AppError::Parse(
+                "the next page of prices is outside the Octopus API".to_owned(),
+            ))
+        }
+        next => Ok(next),
+    }
 }
 
 /// Only follow `next` links back to the Octopus API, never to an arbitrary host.
@@ -158,6 +166,23 @@ mod tests {
     fn page_without_next_field_parses() {
         let page: Page = serde_json::from_str(r#"{"results": []}"#).unwrap();
         assert!(page.next.is_none());
+    }
+
+    #[test]
+    fn last_page_ends_pagination() {
+        assert_eq!(next_page(None), Ok(None));
+    }
+
+    #[test]
+    fn trusted_next_link_is_followed() {
+        let url = "https://api.octopus.energy/v1/products/AGILE-24-10-01/?page=2".to_owned();
+        assert_eq!(next_page(Some(url.clone())), Ok(Some(url)));
+    }
+
+    #[test]
+    fn untrusted_next_link_fails_the_fetch() {
+        let result = next_page(Some("https://evil.example.com/?page=2".to_owned()));
+        assert!(matches!(result, Err(AppError::Parse(_))));
     }
 
     #[test]
