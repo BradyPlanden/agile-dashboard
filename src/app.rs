@@ -12,6 +12,7 @@ use crate::hooks::use_region::{RegionHandle, use_region};
 use crate::hooks::use_theme::use_theme;
 use crate::hooks::use_tracker::use_tracker_rates;
 use crate::models::load_state::LoadState;
+use crate::utils::time::london_date;
 
 #[function_component(App)]
 pub fn app() -> Html {
@@ -21,7 +22,7 @@ pub fn app() -> Html {
     let agile = use_rates(region);
     let tracker = use_tracker_rates(region);
     let carbon = use_carbon_intensity();
-    let history = use_historical_rates(region);
+    let history = use_historical_rates(region, london_date(now));
 
     let refresh_all = {
         let refreshes = [

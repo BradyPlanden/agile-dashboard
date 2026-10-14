@@ -3,8 +3,10 @@
 /// How often live rates and carbon intensity are refreshed while the page is visible.
 pub const POLL_INTERVAL_MS: u32 = 10 * 60 * 1000;
 
-/// How often the price history is re-checked. Usually a cache hit; the window only moves at
-/// London midnight.
+/// How often the price history is re-checked, which also caps its retry backoff.
+///
+/// Usually a cache hit: the history only changes when its window moves at London midnight,
+/// and that starts a fetch of its own.
 pub const HISTORY_POLL_INTERVAL_MS: u32 = 60 * 60 * 1000;
 
 /// Delay before retrying a failed refresh. Doubles per consecutive failure, capped at the

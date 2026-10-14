@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use gloo_storage::{LocalStorage, Storage};
 use serde::{Deserialize, Serialize};
 
@@ -43,19 +43,19 @@ impl Cache {
     }
 }
 
-/// Agile history for `region`, from the cache when it already covers today's window.
+/// Agile history before `today` (London time) for `region`, from the cache when it already
+/// covers that window.
 ///
 /// Past prices never change, so entries stay valid until the window moves at London midnight,
 /// when the whole cache is replaced.
-pub async fn load_history(region: Region) -> Result<Rates, AppError> {
-    let now = Utc::now();
-    let (_, window_end) = history_window(now);
+pub async fn load_history(region: Region, today: NaiveDate) -> Result<Rates, AppError> {
+    let (_, window_end) = history_window(today);
 
     if let Some(rates) = read(window_end).regions.remove(&region) {
         return Ok(rates);
     }
 
-    let rates = fetch_agile_history(region, now).await?;
+    let rates = fetch_agile_history(region, today).await?;
     // Read again: another region may have been cached while this one was being fetched.
     let mut cache = read(window_end);
     cache.regions.insert(region, rates.clone());

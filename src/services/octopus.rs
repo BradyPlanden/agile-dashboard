@@ -1,6 +1,6 @@
 //! Octopus Energy product API: Agile and Tracker unit rates.
 
-use chrono::{DateTime, Days, Utc};
+use chrono::{DateTime, Days, NaiveDate, Utc};
 use serde::Deserialize;
 
 use crate::config::HISTORY_DAYS;
@@ -40,9 +40,9 @@ pub async fn fetch_tracker_rates(region: Region) -> Result<Rates, AppError> {
     fetch_unit_rates(unit_rates_url(TRACKER_PRODUCT, region, from, to)).await
 }
 
-/// Agile rates for the `HISTORY_DAYS` whole days before today.
-pub async fn fetch_agile_history(region: Region, now: DateTime<Utc>) -> Result<Rates, AppError> {
-    let (from, to) = history_window(now);
+/// Agile rates for the `HISTORY_DAYS` whole days before `today` (London time).
+pub async fn fetch_agile_history(region: Region, today: NaiveDate) -> Result<Rates, AppError> {
+    let (from, to) = history_window(today);
     fetch_unit_rates(unit_rates_url(AGILE_PRODUCT, region, from, to)).await
 }
 
@@ -55,9 +55,8 @@ fn current_window(now: DateTime<Utc>) -> (DateTime<Utc>, DateTime<Utc>) {
     (london_midnight_utc(today), london_midnight_utc(end))
 }
 
-/// From London midnight `HISTORY_DAYS` ago to London midnight today.
-pub fn history_window(now: DateTime<Utc>) -> (DateTime<Utc>, DateTime<Utc>) {
-    let today = london_date(now);
+/// From London midnight `HISTORY_DAYS` before `today` to London midnight starting `today`.
+pub fn history_window(today: NaiveDate) -> (DateTime<Utc>, DateTime<Utc>) {
     let start = today
         .checked_sub_days(Days::new(HISTORY_DAYS))
         .expect("history start is a valid date");
@@ -107,7 +106,7 @@ fn is_trusted_page_url(url: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
+    use chrono::{Duration, TimeZone};
 
     #[test]
     fn unit_rates_url_targets_region_and_requests_one_large_page() {
@@ -135,12 +134,23 @@ mod tests {
 
     #[test]
     fn history_window_covers_whole_days_before_today_across_a_clock_change() {
-        let now = Utc.with_ymd_and_hms(2026, 4, 12, 12, 0, 0).unwrap();
-        let (start, end) = history_window(now);
+        let today = NaiveDate::from_ymd_opt(2026, 4, 12).unwrap();
+        let (start, end) = history_window(today);
 
         // Starts in GMT, ends in BST.
         assert_eq!(start, Utc.with_ymd_and_hms(2026, 3, 12, 0, 0, 0).unwrap());
         assert_eq!(end, Utc.with_ymd_and_hms(2026, 4, 11, 23, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn history_window_moves_at_london_midnight() {
+        // 00:00 BST on 12 April is 23:00 UTC on the 11th; `use_now` ticks 250 ms after it.
+        let midnight = Utc.with_ymd_and_hms(2026, 4, 11, 23, 0, 0).unwrap();
+        let (_, before) = history_window(london_date(midnight - Duration::seconds(1)));
+        let (_, after) = history_window(london_date(midnight + Duration::milliseconds(250)));
+
+        assert_eq!(before, Utc.with_ymd_and_hms(2026, 4, 10, 23, 0, 0).unwrap());
+        assert_eq!(after, midnight);
     }
 
     #[test]
