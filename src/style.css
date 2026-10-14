@@ -392,6 +392,69 @@ a {
     box-shadow: inset 6px 0 0 var(--band, transparent);
 }
 
+.window-label {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    align-items: center;
+    justify-content: center;
+}
+
+.stepper {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.stepper-value {
+    min-width: 4.6em;
+    white-space: nowrap;
+}
+
+@media (width <= 480px) {
+    .stat .window-label {
+        letter-spacing: 0.02em;
+    }
+
+    .stepper {
+        gap: 4px;
+    }
+}
+
+.stepper-button {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--color-text);
+    cursor: pointer;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+}
+
+/* Enlarges the tap target to 44px without changing the visible size */
+.stepper-button::before {
+    position: absolute;
+    inset: -10px;
+    content: "";
+}
+
+.stepper-button:hover:not(:disabled) {
+    background: var(--color-inset);
+    border-color: var(--color-text-subtle);
+}
+
+.stepper-button:disabled {
+    cursor: default;
+    opacity: 0.4;
+}
+
 .stat-unit {
     margin-left: 4px;
     font-size: 0.9rem;
@@ -441,6 +504,7 @@ a {
     stroke-width: 2;
     vector-effect: non-scaling-stroke;
 }
+
 
 /* Agile summary */
 
@@ -600,6 +664,7 @@ a {
     stroke: var(--color-text-subtle);
     vector-effect: non-scaling-stroke;
 }
+
 
 .chart-legend {
     display: flex;

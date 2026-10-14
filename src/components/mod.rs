@@ -1,6 +1,7 @@
 pub mod carbon_display;
 pub mod card;
 pub mod cheapest_period;
+pub mod cheapest_window;
 pub mod day_summary;
 pub mod history_banner;
 pub mod now_panel;
@@ -14,6 +15,7 @@ pub mod tracker_display;
 pub use carbon_display::CarbonDisplay;
 pub use card::{Card, load_view, skeleton_or};
 pub use cheapest_period::CheapestPeriod;
+pub use cheapest_window::CheapestWindow;
 pub use day_summary::DaySummary;
 pub use history_banner::HistoryBanner;
 pub use now_panel::NowPanel;

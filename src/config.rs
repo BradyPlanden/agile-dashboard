@@ -20,8 +20,10 @@ pub const MAX_RATE_LIMIT_ATTEMPTS: u32 = 4;
 /// How far ahead the header looks for the cheapest half hour.
 pub const CHEAPEST_SLOT_LOOKAHEAD_HOURS: i64 = 3;
 
-/// Length of the cheapest upcoming block shown beside the current price.
-pub const CHEAPEST_WINDOW_HOURS: i64 = 4;
+/// Default and maximum length, in hours, of the cheapest upcoming block beside the current
+/// price. The user can change it with a stepper.
+pub const CHEAPEST_WINDOW_DEFAULT_HOURS: u8 = 4;
+pub const CHEAPEST_WINDOW_MAX_HOURS: u8 = 12;
 
 /// Whole days of Agile history shown in the banner.
 pub const HISTORY_DAYS: u64 = 31;

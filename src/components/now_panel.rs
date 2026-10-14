@@ -1,12 +1,12 @@
 use std::rc::Rc;
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use yew::prelude::*;
 
-use crate::config::CHEAPEST_WINDOW_HOURS;
+use crate::components::CheapestWindow;
 use crate::models::price_band::PriceBand;
 use crate::models::rates::Rates;
-use crate::utils::time::{london_hhmm, slot_start, start_label};
+use crate::utils::time::london_hhmm;
 
 #[derive(Properties, PartialEq)]
 pub struct NowPanelProps {
@@ -20,7 +20,6 @@ pub fn now_panel(props: &NowPanelProps) -> Html {
     let NowPanelProps { rates, now } = props;
     let current = rates.rate_at(*now);
     let next = rates.next_rate(*now);
-    let window = rates.cheapest_window(slot_start(*now), Duration::hours(CHEAPEST_WINDOW_HOURS));
 
     html! {
         <dl class="now-tiles">
@@ -50,19 +49,7 @@ pub fn now_panel(props: &NowPanelProps) -> Html {
                     <dd class="stat-sub">{ "Not published yet" }</dd>
                 }
             </div>
-            <div class="stat">
-                <dt>{ format!("Cheapest {CHEAPEST_WINDOW_HOURS} hours") }</dt>
-                if let Some(window) = window {
-                    <dd class="stat-value">
-                        { start_label(window.start, *now) }
-                        { format!("–{}", london_hhmm(window.end)) }
-                    </dd>
-                    <dd class="stat-sub">{ format!("average {:.2}p", window.average) }</dd>
-                } else {
-                    <dd class="stat-value">{ "N/A" }</dd>
-                    <dd class="stat-sub">{ "Not enough prices published" }</dd>
-                }
-            </div>
+            <CheapestWindow rates={rates.clone()} now={*now} />
         </dl>
     }
 }
