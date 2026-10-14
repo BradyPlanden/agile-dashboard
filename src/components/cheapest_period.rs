@@ -24,9 +24,7 @@ pub fn cheapest_period(props: &CheapestPeriodProps) -> Html {
     let three_hours_later = now + Duration::hours(3);
 
     let cheapest_time = rates
-        .filter_from(window_start)
-        .take_while(|rate| rate.valid_from < three_hours_later)
-        .min_by(|a, b| a.value_inc_vat.total_cmp(&b.value_inc_vat))
+        .cheapest_between(window_start, three_hours_later)
         .map(|rate| london_time(rate.valid_from).format("%H:%M").to_string());
 
     match cheapest_time {

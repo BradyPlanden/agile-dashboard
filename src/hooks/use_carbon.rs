@@ -1,10 +1,12 @@
-use crate::models::carbon::CarbonIntensity;
-use crate::models::load_state::LoadState;
-use crate::services::carbon_api::fetch_carbon_intensity;
 use yew::prelude::*;
 
-/// Hook that fetches and polls UK carbon intensity data.
+use crate::config::POLL_INTERVAL_MS;
+use crate::hooks::use_polling::{Polled, use_polling};
+use crate::models::carbon::CarbonIntensity;
+use crate::services::carbon::fetch_carbon_intensity;
+
+/// GB grid carbon intensity, refreshed periodically.
 #[hook]
-pub fn use_carbon_intensity() -> LoadState<CarbonIntensity> {
-    crate::models::load_state::use_polling(fetch_carbon_intensity)
+pub fn use_carbon_intensity() -> Polled<CarbonIntensity> {
+    use_polling((), POLL_INTERVAL_MS, |()| fetch_carbon_intensity())
 }

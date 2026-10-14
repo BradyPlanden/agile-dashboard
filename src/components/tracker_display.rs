@@ -1,24 +1,26 @@
-use crate::models::rates::TrackerRates;
+use crate::models::rates::Rates;
+use crate::utils::time::london_date;
+use chrono::Utc;
 use std::rc::Rc;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct TrackerDisplayProps {
-    pub rates: Rc<TrackerRates>,
+    pub rates: Rc<Rates>,
 }
 
 #[function_component(TrackerDisplay)]
 pub fn tracker_display(props: &TrackerDisplayProps) -> Html {
-    // Single memoized computation for all three values
-    let prices = use_memo(props.rates.clone(), |rates| {
-        (
-            rates.current_price(),
-            rates.next_day_price(),
-            rates.price_difference(),
-        )
-    });
-
-    let (current, next_day, diff) = &*prices;
+    let now = Utc::now();
+    let tomorrow = london_date(now)
+        .succ_opt()
+        .expect("tomorrow is a valid date");
+    let current = props.rates.rate_at(now).map(|rate| rate.value_inc_vat);
+    let next_day = props
+        .rates
+        .for_date(tomorrow)
+        .first()
+        .map(|rate| rate.value_inc_vat);
 
     html! {
         <div class="tracker-display">
@@ -39,20 +41,18 @@ pub fn tracker_display(props: &TrackerDisplayProps) -> Html {
                     <h3>{"Tomorrow's Price"}</h3>
                     <p class="tracker-value">
                         {
-                            match (next_day, diff) {
-                                (Some(price), Some(difference)) => {
-                                    let sign = if *difference >= 0.0 { "+" } else { "" };
-                                    let class = if *difference >= 0.0 { "price-increase" } else { "price-decrease" };
+                            match (next_day, current) {
+                                (Some(price), Some(today)) => {
+                                    let difference = price - today;
+                                    let class = if difference >= 0.0 { "price-increase" } else { "price-decrease" };
                                     html! {
                                         <>
-                                            {format!("{:.2}p/kWh ", price)}
-                                            <span class={class}>
-                                                {format!("({}{}p)", sign, format!("{:.2}", difference))}
-                                            </span>
+                                            {format!("{price:.2}p/kWh ")}
+                                            <span class={class}>{format!("({difference:+.2}p)")}</span>
                                         </>
                                     }
                                 },
-                                (Some(price), None) => html! { {format!("{:.2}p/kWh", price)} },
+                                (Some(price), None) => html! { {format!("{price:.2}p/kWh")} },
                                 (None, _) => html! { {"Awaiting data"} },
                             }
                         }

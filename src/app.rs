@@ -11,25 +11,23 @@ use crate::hooks::use_rates::use_rates;
 use crate::hooks::use_region::use_region;
 use crate::hooks::use_theme::{Theme, use_theme};
 use crate::hooks::use_tracker::use_tracker_rates;
-use crate::models::load_state::LoadState;
 
 #[function_component(App)]
 pub fn app() -> Html {
     let region_handle = use_region();
     let region = region_handle.region;
 
-    let state = use_rates(region);
-    let historical_state = use_historical_rates();
-    let tracker_state = use_tracker_rates(region);
-    let carbon_state = use_carbon_intensity();
+    let state = use_rates(region).state;
+    let historical_state = use_historical_rates(region).state;
+    let tracker_state = use_tracker_rates(region).state;
+    let carbon_state = use_carbon_intensity().state;
     let theme_handle = use_theme();
 
     // Extract all historical rate values for banner (31 days × 48 half-hours = ~1488 points)
     let banner_values = use_memo(historical_state.clone(), |state| {
-        match state.data() {
-            Some(rates) => rates.all_values(),
-            None => vec![], // Empty during Loading/Error
-        }
+        state
+            .data()
+            .map_or_else(Vec::new, |rates| rates.values().collect())
     });
 
     html! {
@@ -66,23 +64,23 @@ pub fn app() -> Html {
                     </section>
 
                     {
-                        match &tracker_state {
-                            LoadState::Loading => html! {
-                                <section class="tracker-section">
-                                    <h2>{"Tracker Electricity"}</h2>
-                                    <p>{"Loading tracker data..."}</p>
-                                </section>
-                            },
-                            LoadState::Loaded(tracker_rates) => html! {
+                        match (tracker_state.data(), tracker_state.error()) {
+                            (Some(tracker_rates), _) => html! {
                                 <section class="tracker-section">
                                     <h2>{"Tracker Electricity"}</h2>
                                     <TrackerDisplay rates={tracker_rates.clone()} />
                                 </section>
                             },
-                            LoadState::Error(err) => html! {
+                            (None, Some(err)) => html! {
                                 <section class="tracker-section">
                                     <h2>{"Tracker Electricity"}</h2>
                                     <p class="error">{format!("Error loading tracker data: {}", err)}</p>
+                                </section>
+                            },
+                            (None, None) => html! {
+                                <section class="tracker-section">
+                                    <h2>{"Tracker Electricity"}</h2>
+                                    <p>{"Loading tracker data..."}</p>
                                 </section>
                             },
                         }
@@ -96,23 +94,23 @@ pub fn app() -> Html {
 
                     // Carbon tracking
                     {
-                        match &carbon_state {
-                            LoadState::Loading => html! {
-                                <section class="carbon-section">
-                                    <h2>{"Grid Carbon Intensity"}</h2>
-                                    <p>{"Loading carbon intensity data..."}</p>
-                                </section>
-                            },
-                            LoadState::Loaded(carbon_data) => html! {
+                        match (carbon_state.data(), carbon_state.error()) {
+                            (Some(carbon_data), _) => html! {
                                 <section class="carbon-section">
                                     <h2>{"Grid Carbon Intensity"}</h2>
                                     <CarbonDisplay data={carbon_data.clone()} />
                                 </section>
                             },
-                            LoadState::Error(err) => html! {
+                            (None, Some(err)) => html! {
                                 <section class="carbon-section">
                                     <h2>{"Grid Carbon Intensity"}</h2>
                                     <p class="error">{format!("Error loading carbon data: {}", err)}</p>
+                                </section>
+                            },
+                            (None, None) => html! {
+                                <section class="carbon-section">
+                                    <h2>{"Grid Carbon Intensity"}</h2>
+                                    <p>{"Loading carbon intensity data..."}</p>
                                 </section>
                             },
                         }

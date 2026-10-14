@@ -1,19 +1,21 @@
-/// Configuration constants for the application
-pub struct Config;
+//! Application-wide tuning constants.
 
-impl Config {
-    /// Enable automatic data refresh polling
-    pub const ENABLE_AUTO_REFRESH: bool = true;
+/// How often live rates and carbon intensity are refreshed while the page is visible.
+pub const POLL_INTERVAL_MS: u32 = 10 * 60 * 1000;
 
-    /// Polling interval in milliseconds (10 minutes = 600,000ms)
-    pub const POLLING_INTERVAL_MS: u32 = 600_000;
+/// How often the price history is re-checked. Usually a cache hit; the window only moves at
+/// London midnight.
+pub const HISTORY_POLL_INTERVAL_MS: u32 = 60 * 60 * 1000;
 
-    /// Delay between pagination requests (ms) to avoid rate limiting
-    pub const PAGINATION_DELAY_MS: u32 = 100;
+/// Delay before retrying a failed refresh. Doubles per consecutive failure, capped at the
+/// polling interval.
+pub const ERROR_RETRY_BASE_MS: u32 = 30_000;
 
-    /// Maximum time to wait for an HTTP request before aborting it
-    pub const REQUEST_TIMEOUT_MS: u32 = 30_000;
+/// Maximum time to wait for an HTTP request before aborting it.
+pub const REQUEST_TIMEOUT_MS: u32 = 30_000;
 
-    /// Maximum retry attempts for rate-limited requests
-    pub const MAX_RETRY_ATTEMPTS: u32 = 4;
-}
+/// Maximum attempts for a request that keeps being rate limited (HTTP 429).
+pub const MAX_RATE_LIMIT_ATTEMPTS: u32 = 4;
+
+/// Whole days of Agile history shown in the banner.
+pub const HISTORY_DAYS: u64 = 31;

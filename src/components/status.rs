@@ -1,5 +1,6 @@
 use crate::models::load_state::LoadState;
 use crate::models::rates::Rates;
+use crate::utils::time::london_time;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -21,9 +22,17 @@ pub fn status(props: &StatusProps) -> Html {
                 <p>{"✅ Data loaded successfully"}</p>
             </div>
         },
-        LoadState::Error(msg) => html! {
+        LoadState::Stale { snapshot, error } => html! {
+            <div class="status error" role="status" aria-live="polite">
+                <p>{format!(
+                    "⚠️ Couldn't refresh ({error}). Showing data from {}.",
+                    london_time(snapshot.fetched_at).format("%H:%M")
+                )}</p>
+            </div>
+        },
+        LoadState::Failed(error) => html! {
             <div class="status error" role="alert" aria-live="assertive">
-                <p>{"❌ Error: "}{msg}</p>
+                <p>{"❌ Error: "}{error.to_string()}</p>
             </div>
         },
     }

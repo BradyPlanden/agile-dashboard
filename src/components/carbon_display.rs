@@ -14,11 +14,7 @@ pub fn carbon_display(props: &CarbonDisplayProps) -> Html {
 
     // Last actual values
     let latest_intensity = data.latest_value();
-    let latest_source = if data.has_actual() {
-        "Actual"
-    } else {
-        "Actual Unavailable"
-    };
+    let latest_source = "Actual";
     let latest_index = data.latest_index();
     let latest_index_class = format!("carbon-index-badge {}", latest_index.css_class());
     let (latest_from, latest_to) = data.latest_period();

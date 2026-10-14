@@ -1,7 +1,7 @@
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 
-use crate::services::api::Region;
+use crate::models::region::Region;
 
 #[derive(Properties, PartialEq)]
 pub struct RegionSelectorProps {
@@ -31,9 +31,9 @@ pub fn region_selector(props: &RegionSelectorProps) -> Html {
             title="Select electricity region"
         >
             {
-                Region::all().iter().map(|r| {
+                Region::ALL.iter().map(|r| {
                     let code = r.code();
-                    let label = format!("{} ({})", r.description(), code);
+                    let label = r.to_string();
                     let selected = *r == props.region;
                     html! {
                         <option value={code} {selected}>{label}</option>

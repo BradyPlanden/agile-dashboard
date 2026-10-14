@@ -14,7 +14,7 @@ use web_sys::HtmlElement;
 use yew::prelude::*;
 
 use crate::models::rates::Rates;
-use crate::utils::time::london_today;
+use crate::utils::time::{london_midnight_utc, london_time, london_today};
 
 const CHART_ID: &str = "energy-chart";
 
@@ -28,7 +28,7 @@ pub struct ChartProps {
 pub fn chart(props: &ChartProps) -> Html {
     let container_ref = use_node_ref();
     let chart_instance = use_mut_ref(|| None::<Echarts>);
-    let series_data = props.rates.series_data_for_date(london_today());
+    let series_data = series_data(&props.rates, london_today());
 
     {
         let container_ref = container_ref.clone();
@@ -77,7 +77,7 @@ pub fn chart(props: &ChartProps) -> Html {
 
     // Calculate min/max for accessibility description
     let (min_price, max_price) = match &series_data {
-        Ok((_, y_data)) if !y_data.is_empty() => {
+        (_, y_data) if !y_data.is_empty() => {
             let min = y_data.iter().copied().fold(f64::INFINITY, f64::min);
             let max = y_data.iter().copied().fold(f64::NEG_INFINITY, f64::max);
             (min, max)
@@ -102,9 +102,23 @@ pub fn chart(props: &ChartProps) -> Html {
     }
 }
 
+/// Time labels and prices for every slot from London midnight on `date`.
+fn series_data(rates: &Rates, date: chrono::NaiveDate) -> (Vec<String>, Vec<f64>) {
+    rates
+        .starting_from(london_midnight_utc(date))
+        .iter()
+        .map(|rate| {
+            (
+                london_time(rate.valid_from).format("%a %H:%M").to_string(),
+                rate.value_inc_vat,
+            )
+        })
+        .unzip()
+}
+
 fn render_chart(
     container: &HtmlElement,
-    series_data: &Result<(Vec<String>, Vec<f64>), crate::models::error::AppError>,
+    series_data: &(Vec<String>, Vec<f64>),
     dark_mode: bool,
     chart_instance: &mut Option<Echarts>,
 ) {
@@ -115,9 +129,14 @@ fn render_chart(
         return;
     }
 
-    match series_data {
-        Ok(data) => {
-            let chart = build_chart(data, dark_mode);
+    if series_data.1.is_empty() {
+        web_sys::console::error_1(&"No rates for today".into());
+        return;
+    }
+
+    {
+        {
+            let chart = build_chart(series_data, dark_mode);
             if let Some(existing_chart) = chart_instance.as_ref() {
                 WasmRenderer::resize_chart(
                     existing_chart,
@@ -133,7 +152,6 @@ fn render_chart(
                 }
             }
         }
-        Err(e) => web_sys::console::error_1(&format!("Series data error: {e}").into()),
     }
 }
 

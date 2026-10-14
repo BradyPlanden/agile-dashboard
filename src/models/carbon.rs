@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use super::error::AppError;
+
 /// Carbon intensity index category
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -76,19 +78,13 @@ where
         return Ok(dt.with_timezone(&Utc));
     }
 
-    // If string ends with 'Z' but no seconds, parse as UTC naive datetime
-    if s.ends_with('Z') {
-        let s_without_z = &s[..s.len() - 1];
-
-        // Try with seconds
-        if let Ok(naive) = NaiveDateTime::parse_from_str(s_without_z, "%Y-%m-%dT%H:%M:%S") {
-            return Ok(DateTime::from_naive_utc_and_offset(naive, Utc));
-        }
-
-        // Try without seconds
-        if let Ok(naive) = NaiveDateTime::parse_from_str(s_without_z, "%Y-%m-%dT%H:%M") {
-            return Ok(DateTime::from_naive_utc_and_offset(naive, Utc));
-        }
+    // The API often omits seconds ("2026-01-12T19:30Z"), which RFC 3339 requires
+    if let Some(naive) = s.strip_suffix('Z').and_then(|s| {
+        NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S")
+            .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M"))
+            .ok()
+    }) {
+        return Ok(naive.and_utc());
     }
 
     Err(serde::de::Error::custom(format!(
@@ -100,11 +96,6 @@ impl CarbonIntensityData {
     /// Get the best available intensity value (actual if present, otherwise forecast)
     pub fn best_intensity(&self) -> u32 {
         self.intensity.actual.unwrap_or(self.intensity.forecast)
-    }
-
-    /// Check if actual data is available
-    pub const fn has_actual(&self) -> bool {
-        self.intensity.actual.is_some()
     }
 }
 
@@ -118,6 +109,30 @@ pub struct CarbonIntensity {
 impl CarbonIntensity {
     pub const fn new(latest: CarbonIntensityData, next: CarbonIntensityData) -> Self {
         Self { latest, next }
+    }
+
+    /// Picks the most recent measured period and the forecast for `now` from a day of periods.
+    pub fn from_periods(
+        periods: &[CarbonIntensityData],
+        now: DateTime<Utc>,
+    ) -> Result<Self, AppError> {
+        let latest = periods
+            .iter()
+            .filter(|period| period.to <= now && period.intensity.actual.is_some())
+            .max_by_key(|period| period.to)
+            .ok_or(AppError::MissingData(
+                "no measured carbon intensity yet today",
+            ))?;
+
+        let next = periods
+            .iter()
+            .find(|period| period.from <= now && now < period.to)
+            .or_else(|| periods.iter().find(|period| period.from > now))
+            .ok_or(AppError::MissingData(
+                "no carbon intensity forecast for now",
+            ))?;
+
+        Ok(Self::new(latest.clone(), next.clone()))
     }
 
     /// Returns the last actual intensity value
@@ -154,9 +169,56 @@ impl CarbonIntensity {
     pub fn intensity_change(&self) -> i32 {
         self.next_forecast().cast_signed() - self.latest_value().cast_signed()
     }
+}
 
-    /// Returns whether the current period has actual data
-    pub const fn has_actual(&self) -> bool {
-        self.latest.has_actual()
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    fn period(from_min: i64, actual: Option<u32>, forecast: u32) -> CarbonIntensityData {
+        let midnight = Utc.with_ymd_and_hms(2026, 1, 12, 0, 0, 0).unwrap();
+        CarbonIntensityData {
+            from: midnight + chrono::Duration::minutes(from_min),
+            to: midnight + chrono::Duration::minutes(from_min + 30),
+            intensity: Intensity {
+                forecast,
+                actual,
+                index: IntensityIndex::Moderate,
+            },
+        }
+    }
+
+    #[test]
+    fn picks_latest_measured_and_current_forecast() {
+        let periods = [
+            period(0, Some(95), 91),
+            period(30, Some(94), 91),
+            period(60, None, 93),
+            period(90, None, 120),
+        ];
+        let now = Utc.with_ymd_and_hms(2026, 1, 12, 1, 10, 0).unwrap();
+
+        let carbon = CarbonIntensity::from_periods(&periods, now).unwrap();
+        assert_eq!(carbon.latest_value(), 94);
+        assert_eq!(carbon.next_forecast(), 93);
+        assert_eq!(carbon.intensity_change(), -1);
+    }
+
+    #[test]
+    fn falls_back_to_the_next_period_when_none_covers_now() {
+        let periods = [period(0, Some(95), 91), period(60, None, 120)];
+        let now = Utc.with_ymd_and_hms(2026, 1, 12, 0, 45, 0).unwrap();
+
+        let carbon = CarbonIntensity::from_periods(&periods, now).unwrap();
+        assert_eq!(carbon.next_forecast(), 120);
+    }
+
+    #[test]
+    fn errors_without_any_measured_period() {
+        let periods = [period(0, None, 91)];
+        let now = Utc.with_ymd_and_hms(2026, 1, 12, 0, 45, 0).unwrap();
+
+        assert!(CarbonIntensity::from_periods(&periods, now).is_err());
     }
 }

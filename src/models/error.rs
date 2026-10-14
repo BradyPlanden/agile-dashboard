@@ -1,20 +1,21 @@
+/// Errors from fetching or interpreting remote data, shown to the user.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum AppError {
-    #[error("API Error: {0}")]
-    ApiError(String),
+    #[error("network error: {0}")]
+    Network(String),
 
-    #[error("Data Error: {0}")]
-    DataError(String),
+    #[error("request timed out")]
+    Timeout,
 
-    #[error("Configuration error: {0}")]
-    ConfigError(String),
-
-    #[error("Rate limited")]
+    #[error("rate limited by the API")]
     RateLimited,
 
-    #[error("Authentication error: {0}")]
-    AuthError(String),
+    #[error("API returned HTTP {0}")]
+    Http(u16),
 
-    #[error("Not found: {0}")]
-    NotFound(String),
+    #[error("unexpected response: {0}")]
+    Parse(String),
+
+    #[error("{0}")]
+    MissingData(&'static str),
 }

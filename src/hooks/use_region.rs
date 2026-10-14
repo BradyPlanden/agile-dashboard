@@ -1,52 +1,36 @@
-use gloo_storage::Storage;
+use gloo_storage::{LocalStorage, Storage};
 use yew::prelude::*;
 
-use crate::services::api::Region;
+use crate::models::region::Region;
+use crate::utils::log;
 
-/// Handle returned by `use_region` hook
+const STORAGE_KEY: &str = "region";
+
+/// Region state returned by [`use_region`].
 #[derive(Clone, PartialEq)]
 pub struct RegionHandle {
     pub region: Region,
     pub set_region: Callback<Region>,
 }
 
-/// Custom hook for region management with localStorage persistence
+/// The selected region, persisted to local storage.
 #[hook]
 pub fn use_region() -> RegionHandle {
-    // Load region from localStorage, fallback to default (Region::C / London)
-    let region = use_state(|| load_region_preference().unwrap_or_default());
+    let region = use_state(|| load_region().unwrap_or_default());
 
-    // Effect: Persist region to localStorage on change
-    {
-        let region_value = *region;
-        use_effect_with(region_value, move |region| {
-            save_region_preference(*region);
-            || ()
-        });
-    }
-
-    // Set region callback
-    let set_region = {
-        let region = region.clone();
-        Callback::from(move |new_region| region.set(new_region))
-    };
+    use_effect_with(*region, |region| {
+        if let Err(error) = LocalStorage::set(STORAGE_KEY, region.code()) {
+            log::warn(&format!("Failed to save region: {error}"));
+        }
+    });
 
     RegionHandle {
         region: *region,
-        set_region,
+        set_region: Callback::from(move |new_region| region.set(new_region)),
     }
 }
 
-/// Load region preference from localStorage, validating the deserialized value.
-fn load_region_preference() -> Option<Region> {
-    let raw: String = gloo_storage::LocalStorage::get("region").ok()?;
-    // Parse through FromStr to validate — rejects arbitrary strings
-    raw.parse::<Region>().ok()
-}
-
-/// Save region preference to localStorage
-fn save_region_preference(region: Region) {
-    if let Err(e) = gloo_storage::LocalStorage::set("region", region.code()) {
-        web_sys::console::warn_1(&format!("Failed to save region: {e:?}").into());
-    }
+/// Parses rather than deserializes, so arbitrary stored strings are rejected.
+fn load_region() -> Option<Region> {
+    LocalStorage::get::<String>(STORAGE_KEY).ok()?.parse().ok()
 }

@@ -1,9 +1,9 @@
-use crate::models::rates::DayStats;
+use crate::models::rates::PriceStats;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct DaySummaryProps {
-    pub stats: DayStats,
+    pub stats: PriceStats,
     pub title: String,
     pub current_price: Option<f64>,
     pub next_price: Option<f64>,

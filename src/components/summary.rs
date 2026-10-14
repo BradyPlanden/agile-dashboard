@@ -1,5 +1,6 @@
 use crate::components::DaySummary;
 use crate::models::rates::Rates;
+use crate::utils::time::london_date;
 use chrono::Utc;
 use std::rc::Rc;
 use yew::prelude::*;
@@ -11,24 +12,26 @@ pub struct SummaryProps {
 
 #[function_component(Summary)]
 pub fn summary(props: &SummaryProps) -> Html {
-    let daily_stats = props.rates.daily_stats_at(Utc::now());
+    let now = Utc::now();
+    let today = london_date(now);
+    let tomorrow = today.succ_opt().expect("tomorrow is a valid date");
 
-    match daily_stats {
-        Ok(stats) => html! {
+    match props.rates.stats_for_date(today) {
+        Some(today_stats) => html! {
             <div class="data-summary">
                 // Today's card (always shown)
                 <DaySummary
-                    stats={stats.today.clone()}
+                    stats={today_stats}
                     title={"Today's Statistics"}
-                    current_price={Some(stats.current)}
-                    next_price={Some(stats.next)}
+                    current_price={props.rates.rate_at(now).map(|rate| rate.value_inc_vat)}
+                    next_price={props.rates.next_rate(now).map(|rate| rate.value_inc_vat)}
                     is_tomorrow={false}
                 />
 
                 // Tomorrow's card (conditional)
-                if let Some(tomorrow) = &stats.tomorrow {
+                if let Some(tomorrow_stats) = props.rates.stats_for_date(tomorrow) {
                     <DaySummary
-                        stats={tomorrow.clone()}
+                        stats={tomorrow_stats}
                         title={"Tomorrow's Statistics"}
                         current_price={None}
                         next_price={None}
@@ -37,9 +40,9 @@ pub fn summary(props: &SummaryProps) -> Html {
                 }
             </div>
         },
-        Err(e) => html! {
+        None => html! {
             <div class="data-summary error">
-                <p>{"Error calculating summary: "}{e.to_string()}</p>
+                <p>{"No prices published for today"}</p>
             </div>
         },
     }
