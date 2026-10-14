@@ -1,8 +1,10 @@
+use std::rc::Rc;
+
+use chrono::{DateTime, Utc};
+use yew::prelude::*;
+
 use crate::models::rates::Rates;
 use crate::utils::time::london_date;
-use chrono::{DateTime, Utc};
-use std::rc::Rc;
-use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct TrackerDisplayProps {
@@ -10,56 +12,45 @@ pub struct TrackerDisplayProps {
     pub now: DateTime<Utc>,
 }
 
+/// Tracker's daily price today and tomorrow.
 #[function_component(TrackerDisplay)]
 pub fn tracker_display(props: &TrackerDisplayProps) -> Html {
-    let now = props.now;
-    let tomorrow = london_date(now)
+    let tomorrow = london_date(props.now)
         .succ_opt()
         .expect("tomorrow is a valid date");
-    let current = props.rates.rate_at(now).map(|rate| rate.value_inc_vat);
-    let next_day = props
+    let today_price = props
+        .rates
+        .rate_at(props.now)
+        .map(|rate| rate.value_inc_vat);
+    let tomorrow_price = props
         .rates
         .for_date(tomorrow)
         .first()
         .map(|rate| rate.value_inc_vat);
 
     html! {
-        <div class="tracker-display">
-            <div class="tracker-grid">
-                <div class="tracker-item">
-                    <h3>{"Current Price"}</h3>
-                    <p class="tracker-value">
-                        {
-                            if let Some(price) = current {
-                                format!("{price:.2}p/kWh")
-                            } else {
-                                "N/A".to_string()
-                            }
-                        }
-                    </p>
-                </div>
-                <div class="tracker-item-tomorrow">
-                    <h3>{"Tomorrow's Price"}</h3>
-                    <p class="tracker-value">
-                        {
-                            match (next_day, current) {
-                                (Some(price), Some(today)) => {
-                                    let difference = price - today;
-                                    let class = if difference >= 0.0 { "price-increase" } else { "price-decrease" };
-                                    html! {
-                                        <>
-                                            {format!("{price:.2}p/kWh ")}
-                                            <span class={class}>{format!("({difference:+.2}p)")}</span>
-                                        </>
-                                    }
-                                },
-                                (Some(price), None) => html! { {format!("{price:.2}p/kWh")} },
-                                (None, _) => html! { {"Awaiting data"} },
-                            }
-                        }
-                    </p>
-                </div>
+        <dl class="stat-grid">
+            <div class="stat">
+                <dt>{ "Today" }</dt>
+                <dd class="stat-value">
+                    { today_price.map_or_else(|| "N/A".to_owned(), |price| format!("{price:.2}p/kWh")) }
+                </dd>
             </div>
-        </div>
+            <div class="stat stat-highlight">
+                <dt>{ "Tomorrow" }</dt>
+                <dd class="stat-value">
+                    if let Some(price) = tomorrow_price {
+                        { format!("{price:.2}p/kWh ") }
+                        if let Some(today) = today_price {
+                            <span class={classes!("delta", if price > today { "delta-up" } else { "delta-down" })}>
+                                { format!("({:+.2}p)", price - today) }
+                            </span>
+                        }
+                    } else {
+                        <span class="placeholder">{ "Not published yet" }</span>
+                    }
+                </dd>
+            </div>
+        </dl>
     }
 }

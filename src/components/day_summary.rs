@@ -1,49 +1,41 @@
-use crate::models::rates::PriceStats;
 use yew::prelude::*;
+
+use crate::models::rates::PriceStats;
 
 #[derive(Properties, PartialEq)]
 pub struct DaySummaryProps {
-    pub stats: PriceStats,
-    pub title: String,
-    pub current_price: Option<f64>,
-    pub next_price: Option<f64>,
-    #[prop_or(false)]
-    pub is_tomorrow: bool,
+    pub title: AttrValue,
+    pub stats: Option<PriceStats>,
+    /// Shown instead of the statistics when there are none.
+    pub placeholder: AttrValue,
+    #[prop_or_default]
+    pub highlight: bool,
 }
 
+/// Low, average and high price for one day.
 #[function_component(DaySummary)]
 pub fn day_summary(props: &DaySummaryProps) -> Html {
-    let card_class = if props.is_tomorrow {
-        "day-summary-card tomorrow"
-    } else {
-        "day-summary-card"
-    };
-
     html! {
-        <div class={card_class}>
-            <h2>{&props.title}</h2>
-            <div class="summary-grid">
-                <div class="summary-item">
-                    <h3>{"Price Range"}</h3>
-                    <p class="summary-value">{props.stats.to_string()}</p>
-                </div>
-                <div class="summary-item">
-                    <h3>{"Average Price"}</h3>
-                    <p class="summary-value">{format!("{:.2}p", props.stats.avg)}</p>
-                </div>
-                if let Some(current) = props.current_price {
-                    <div class="summary-item">
-                        <h3>{"Current Price"}</h3>
-                        <p class="summary-value">{format!("{:.2}p", current)}</p>
+        <div class={classes!("day-card", props.highlight.then_some("highlight"))}>
+            <h3>{ &props.title }</h3>
+            if let Some(stats) = props.stats {
+                <dl class="stat-grid">
+                    <div class="stat">
+                        <dt>{ "Low" }</dt>
+                        <dd class="stat-value">{ format!("{:.2}p", stats.min) }</dd>
                     </div>
-                }
-                if let Some(next) = props.next_price {
-                    <div class="summary-item">
-                        <h3>{"Next Price"}</h3>
-                        <p class="summary-value">{format!("{:.2}p", next)}</p>
+                    <div class="stat">
+                        <dt>{ "Average" }</dt>
+                        <dd class="stat-value">{ format!("{:.2}p", stats.avg) }</dd>
                     </div>
-                }
-            </div>
+                    <div class="stat">
+                        <dt>{ "High" }</dt>
+                        <dd class="stat-value">{ format!("{:.2}p", stats.max) }</dd>
+                    </div>
+                </dl>
+            } else {
+                <p class="placeholder">{ &props.placeholder }</p>
+            }
         </div>
     }
 }

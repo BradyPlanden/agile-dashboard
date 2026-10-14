@@ -1,6 +1,6 @@
 use std::fmt;
 
-use chrono::{DateTime, Days, NaiveDate, Utc};
+use chrono::{DateTime, Days, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::utils::time::london_midnight_utc;
@@ -102,6 +102,33 @@ impl Rates {
             .min_by(|a, b| a.value_inc_vat.total_cmp(&b.value_inc_vat))
     }
 
+    /// The unbroken run of rates lasting `duration`, starting at or after `from`, with the
+    /// lowest average price; the earliest wins a tie.
+    pub fn cheapest_window(&self, from: DateTime<Utc>, duration: Duration) -> Option<PriceWindow> {
+        let rates = self.starting_from(from);
+        (0..rates.len())
+            .filter_map(|first| {
+                let start = rates[first].valid_from;
+                let mut end = start;
+                let mut sum = 0.0;
+                let mut count = 0_usize;
+                for rate in &rates[first..] {
+                    if rate.valid_from != end || end - start >= duration {
+                        break;
+                    }
+                    end = rate.valid_to;
+                    sum += rate.value_inc_vat;
+                    count += 1;
+                }
+                (end - start == duration).then(|| PriceWindow {
+                    start,
+                    end,
+                    average: sum / count as f64,
+                })
+            })
+            .min_by(|a, b| a.average.total_cmp(&b.average))
+    }
+
     /// Price statistics for the given London calendar date.
     pub fn stats_for_date(&self, date: NaiveDate) -> Option<PriceStats> {
         PriceStats::from_values(self.for_date(date).iter().map(|rate| rate.value_inc_vat))
@@ -111,6 +138,14 @@ impl Rates {
     pub fn stats(&self) -> Option<PriceStats> {
         PriceStats::from_values(self.values())
     }
+}
+
+/// A span of consecutive rates and their average price.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PriceWindow {
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
+    pub average: f64,
 }
 
 /// Range and average of a set of prices.
@@ -271,6 +306,58 @@ mod tests {
                 .stats_for_date(NaiveDate::from_ymd_opt(2024, 1, 15).unwrap())
                 .is_none()
         );
+    }
+
+    #[test]
+    fn cheapest_window_finds_the_lowest_average_run() {
+        let rates = Rates::new(vec![
+            half_hour(10, 0, 30.0),
+            half_hour(10, 30, 5.0),
+            half_hour(11, 0, 6.0),
+            half_hour(11, 30, 40.0),
+            half_hour(12, 0, 1.0),
+        ]);
+
+        let window = rates
+            .cheapest_window(utc(2024, 1, 15, 10, 0), Duration::hours(1))
+            .unwrap();
+        assert_eq!(window.start, utc(2024, 1, 15, 10, 30));
+        assert_eq!(window.end, utc(2024, 1, 15, 11, 30));
+        assert_eq!(window.average, 5.5);
+    }
+
+    #[test]
+    fn cheapest_window_never_spans_a_gap() {
+        // 10:30 is missing, so the two cheap slots are not one hour of continuous supply.
+        let rates = Rates::new(vec![
+            half_hour(10, 0, 1.0),
+            half_hour(11, 0, 1.0),
+            half_hour(11, 30, 50.0),
+        ]);
+
+        let window = rates
+            .cheapest_window(utc(2024, 1, 15, 10, 0), Duration::hours(1))
+            .unwrap();
+        assert_eq!(window.start, utc(2024, 1, 15, 11, 0));
+    }
+
+    #[test]
+    fn cheapest_window_needs_enough_published_rates() {
+        let rates = Rates::new(vec![half_hour(10, 0, 1.0), half_hour(10, 30, 1.0)]);
+        assert!(
+            rates
+                .cheapest_window(utc(2024, 1, 15, 10, 0), Duration::hours(4))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn cheapest_window_prefers_the_earliest_tie() {
+        let rates = Rates::new(vec![half_hour(10, 0, 2.0), half_hour(10, 30, 2.0)]);
+        let window = rates
+            .cheapest_window(utc(2024, 1, 15, 10, 0), Duration::minutes(30))
+            .unwrap();
+        assert_eq!(window.start, utc(2024, 1, 15, 10, 0));
     }
 
     #[test]

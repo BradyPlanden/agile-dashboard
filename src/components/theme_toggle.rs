@@ -20,7 +20,7 @@ pub fn theme_toggle(props: &ThemeToggleProps) -> Html {
     html! {
         <button
             type="button"
-            class="theme-toggle"
+            class="control icon-button"
             onclick={props.on_cycle.reform(|_| ())}
             title={label}
         >

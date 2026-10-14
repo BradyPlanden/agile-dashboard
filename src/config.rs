@@ -17,5 +17,11 @@ pub const REQUEST_TIMEOUT_MS: u32 = 30_000;
 /// Maximum attempts for a request that keeps being rate limited (HTTP 429).
 pub const MAX_RATE_LIMIT_ATTEMPTS: u32 = 4;
 
+/// How far ahead the header looks for the cheapest half hour.
+pub const CHEAPEST_SLOT_LOOKAHEAD_HOURS: i64 = 3;
+
+/// Length of the cheapest upcoming block shown beside the current price.
+pub const CHEAPEST_WINDOW_HOURS: i64 = 4;
+
 /// Whole days of Agile history shown in the banner.
 pub const HISTORY_DAYS: u64 = 31;
