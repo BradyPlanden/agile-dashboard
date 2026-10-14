@@ -2,5 +2,6 @@
 target = "index.html"
 public_url = "/"
 
+# Tool versions only. wasm-opt flags are set on the rust <link> in index.html.
 [tools]
-wasm-opt = ["-Oz", "--enable-mutable-globals"]
+wasm_opt = "version_123"

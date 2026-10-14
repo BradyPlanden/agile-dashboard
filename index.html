@@ -4,6 +4,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="utf-8" />
     <title>Octopus Agile Dashboard</title>
+    <!-- wasm-opt must be told about the WebAssembly features rustc now emits by default. -->
+    <link
+        data-trunk
+        rel="rust"
+        data-wasm-opt="z"
+        data-wasm-opt-params="--enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue"
+    />
     <link data-trunk rel="copy-file" href="favicon.svg">
     <link data-trunk rel="copy-file" href="robots.txt">
     <link data-trunk rel="copy-file" href="llms.txt">
