@@ -19,7 +19,7 @@ pub struct PriceChartProps {
 /// slot units and y in percent; labels are HTML positioned by percentage so text stays crisp.
 #[function_component(PriceChart)]
 pub fn price_chart(props: &PriceChartProps) -> Html {
-    let selected = use_state(|| None::<usize>);
+    let selection = use_reducer_eq(Selection::default);
 
     let PriceChartProps { rates, now } = props;
     let slots = rates.starting_from(london_midnight_utc(london_date(*now)));
@@ -29,7 +29,7 @@ pub fn price_chart(props: &PriceChartProps) -> Html {
 
     let count = slots.len();
     let current = slots.iter().position(|rate| rate.covers(*now));
-    let selected_index = selected.filter(|&index| index < count);
+    let selected_index = selection.shown(count);
     let focused = selected_index.or(current);
     let scale = YScale::for_values(slots.iter().map(|rate| rate.value_inc_vat));
     let width = count as f64;
@@ -56,9 +56,20 @@ pub fn price_chart(props: &PriceChartProps) -> Html {
     });
 
     let hit_targets = (0..count).map(|index| {
-        let selected = selected.clone();
-        let onpointerenter = Callback::from(move |_: PointerEvent| selected.set(Some(index)));
-        html! { <rect class="hit" x={index.to_string()} y="0" width="1" height="100" {onpointerenter} /> }
+        let hover = selection.dispatcher();
+        let onpointerenter = Callback::from(move |event: PointerEvent| {
+            // Touch has no hover, and the `pointerleave` that follows a lift would clear one at
+            // once; the tap pins the bar instead.
+            if event.pointer_type() != "touch" {
+                hover.dispatch(SelectionAction::Hover(Some(index)));
+            }
+        });
+        let tap = selection.dispatcher();
+        let onclick =
+            Callback::from(move |_: MouseEvent| tap.dispatch(SelectionAction::Toggle(index)));
+        html! {
+            <rect class="hit" x={index.to_string()} y="0" width="1" height="100" {onpointerenter} {onclick} />
+        }
     });
 
     let grid_lines = scale.ticks().map(|tick| {
@@ -97,11 +108,11 @@ pub fn price_chart(props: &PriceChartProps) -> Html {
     });
 
     let onpointerleave = {
-        let selected = selected.clone();
-        Callback::from(move |_: PointerEvent| selected.set(None))
+        let dispatch = selection.dispatcher();
+        Callback::from(move |_: PointerEvent| dispatch.dispatch(SelectionAction::Hover(None)))
     };
     let onkeydown = {
-        let selected = selected.clone();
+        let dispatch = selection.dispatcher();
         Callback::from(move |event: KeyboardEvent| {
             let last = count - 1;
             let target = match event.key().as_str() {
@@ -113,7 +124,7 @@ pub fn price_chart(props: &PriceChartProps) -> Html {
                 _ => return,
             };
             event.prevent_default();
-            selected.set(target);
+            dispatch.dispatch(SelectionAction::Pin(target));
         })
     };
 
@@ -157,13 +168,61 @@ pub fn price_chart(props: &PriceChartProps) -> Html {
     }
 }
 
+/// The bars picked out by pointer or keyboard. A hovered bar shows over a pinned one, and
+/// the chart falls back to the current slot when neither is set.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct Selection {
+    /// The bar under a mouse or pen. Touch never hovers.
+    hovered: Option<usize>,
+    /// The bar last tapped, clicked or chosen with the keyboard. It outlasts the pointer
+    /// leaving the chart, which is what lets a tap stick.
+    pinned: Option<usize>,
+}
+
+enum SelectionAction {
+    Hover(Option<usize>),
+    /// Pins a bar, or releases it if it's already pinned.
+    Toggle(usize),
+    /// Pins a bar, or releases the pin, and drops any hover so the keyboard choice shows.
+    Pin(Option<usize>),
+}
+
+impl Selection {
+    /// The selected bar among `count`, if any.
+    fn shown(self, count: usize) -> Option<usize> {
+        self.hovered.or(self.pinned).filter(|&index| index < count)
+    }
+
+    fn apply(self, action: SelectionAction) -> Self {
+        match action {
+            SelectionAction::Hover(hovered) => Self { hovered, ..self },
+            SelectionAction::Toggle(index) => Self {
+                pinned: (self.pinned != Some(index)).then_some(index),
+                ..self
+            },
+            SelectionAction::Pin(pinned) => Self {
+                hovered: None,
+                pinned,
+            },
+        }
+    }
+}
+
+impl Reducible for Selection {
+    type Action = SelectionAction;
+
+    fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
+        Rc::new(self.apply(action))
+    }
+}
+
 #[derive(Properties, PartialEq)]
 struct ReadoutProps {
     rate: Option<Rate>,
     is_now: bool,
 }
 
-/// The price of the hovered, focused or current slot.
+/// The price of the hovered, pinned or current slot.
 #[function_component(Readout)]
 fn readout(props: &ReadoutProps) -> Html {
     html! {
@@ -314,6 +373,60 @@ mod tests {
              highest 35.00p at 01:00, average 20.00p."
         );
         assert_eq!(describe(&[]), "");
+    }
+
+    fn select(actions: impl IntoIterator<Item = SelectionAction>) -> Selection {
+        actions
+            .into_iter()
+            .fold(Selection::default(), Selection::apply)
+    }
+
+    #[test]
+    fn tapped_bar_stays_selected_after_the_pointer_leaves() {
+        // A touch tap: a click, then `pointerleave` once the finger lifts.
+        let selection = select([SelectionAction::Toggle(5), SelectionAction::Hover(None)]);
+        assert_eq!(selection.shown(48), Some(5));
+    }
+
+    #[test]
+    fn hover_shows_over_the_pin_until_the_pointer_leaves() {
+        let hovering = select([SelectionAction::Toggle(5), SelectionAction::Hover(Some(9))]);
+        assert_eq!(hovering.shown(48), Some(9));
+        assert_eq!(
+            hovering.apply(SelectionAction::Hover(None)).shown(48),
+            Some(5)
+        );
+    }
+
+    #[test]
+    fn tapping_the_pinned_bar_releases_it() {
+        let selection = select([SelectionAction::Toggle(5), SelectionAction::Toggle(5)]);
+        assert_eq!(selection.shown(48), None);
+        assert_eq!(
+            selection.apply(SelectionAction::Toggle(6)).shown(48),
+            Some(6)
+        );
+    }
+
+    #[test]
+    fn keyboard_pin_replaces_hover() {
+        let selection = select([
+            SelectionAction::Hover(Some(9)),
+            SelectionAction::Pin(Some(2)),
+        ]);
+        assert_eq!(
+            selection,
+            Selection {
+                hovered: None,
+                pinned: Some(2)
+            }
+        );
+        assert_eq!(selection.apply(SelectionAction::Pin(None)).shown(48), None);
+    }
+
+    #[test]
+    fn selection_beyond_the_published_slots_is_ignored() {
+        assert_eq!(select([SelectionAction::Toggle(60)]).shown(48), None);
     }
 
     #[test]
