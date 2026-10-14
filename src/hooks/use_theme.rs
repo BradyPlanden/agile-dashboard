@@ -1,173 +1,192 @@
 use gloo_events::EventListener;
-use gloo_storage::Storage;
+use gloo_storage::{LocalStorage, Storage};
 use serde::{Deserialize, Serialize};
-use web_sys::wasm_bindgen::JsCast;
 use yew::prelude::*;
 
-/// Theme enum representing user's theme preference
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub enum Theme {
+use crate::utils::log;
+
+const STORAGE_KEY: &str = "theme";
+const DARK_QUERY: &str = "(prefers-color-scheme: dark)";
+
+/// The user's theme choice. Stored as `"auto"`, `"light"` or `"dark"`, which the boot
+/// script in `index.html` also reads.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemePreference {
+    #[default]
+    Auto,
     Light,
     Dark,
-    Auto, // Follow system preference
 }
 
-impl Theme {
-    const fn storage_value(self) -> &'static str {
+/// The colour scheme actually applied.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ColorScheme {
+    Light,
+    Dark,
+}
+
+impl ColorScheme {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Light => "light",
             Self::Dark => "dark",
-            Self::Auto => "auto",
         }
     }
 
-    fn from_storage_value(value: &str) -> Option<Self> {
-        match value {
-            "light" => Some(Self::Light),
-            "dark" => Some(Self::Dark),
-            "auto" => Some(Self::Auto),
-            _ => None,
+    const fn opposite(self) -> Self {
+        match self {
+            Self::Light => Self::Dark,
+            Self::Dark => Self::Light,
         }
     }
 }
 
-/// Handle returned by `use_theme` hook
+impl From<ColorScheme> for ThemePreference {
+    fn from(scheme: ColorScheme) -> Self {
+        match scheme {
+            ColorScheme::Light => Self::Light,
+            ColorScheme::Dark => Self::Dark,
+        }
+    }
+}
+
+impl ThemePreference {
+    /// The scheme this preference shows, given the system's.
+    pub const fn resolve(self, system: ColorScheme) -> ColorScheme {
+        match self {
+            Self::Auto => system,
+            Self::Light => ColorScheme::Light,
+            Self::Dark => ColorScheme::Dark,
+        }
+    }
+
+    /// The next preference in the toggle cycle. The first click always changes what's shown,
+    /// and the cycle passes through both explicit schemes before returning to `Auto`.
+    pub const fn next(self, system: ColorScheme) -> Self {
+        match self {
+            Self::Auto => match system.opposite() {
+                ColorScheme::Light => Self::Light,
+                ColorScheme::Dark => Self::Dark,
+            },
+            Self::Light if matches!(system, ColorScheme::Dark) => Self::Dark,
+            Self::Dark if matches!(system, ColorScheme::Light) => Self::Light,
+            Self::Light | Self::Dark => Self::Auto,
+        }
+    }
+}
+
+/// Theme state returned by [`use_theme`].
 #[derive(Clone, PartialEq)]
 pub struct ThemeHandle {
-    pub theme: Theme,           // User's preference
-    pub effective_theme: Theme, // Resolved theme
-    pub toggle: Callback<()>,
-    pub set_theme: Callback<Theme>,
+    pub preference: ThemePreference,
+    pub scheme: ColorScheme,
+    pub cycle: Callback<()>,
 }
 
-/// Custom hook for theme management
+/// Persists the theme preference, follows system changes in `Auto`, and applies the
+/// resolved scheme to `<html data-theme>`.
 #[hook]
 pub fn use_theme() -> ThemeHandle {
-    // Load user preference from localStorage, fallback to Auto
-    let theme = use_state(|| load_theme_preference().unwrap_or(Theme::Auto));
+    let preference = use_state(load_preference);
+    let system = use_state(system_scheme);
+    let scheme = preference.resolve(*system);
 
-    // Detect system preference
-    let system_preference = use_state(detect_system_preference);
+    use_effect_with(scheme, |scheme| {
+        apply_to_document(*scheme);
+    });
 
-    // Compute effective theme (resolve Auto to Light/Dark)
-    let effective_theme = match *theme {
-        Theme::Auto => *system_preference,
-        other => other,
-    };
+    use_effect_with(*preference, |preference| {
+        if let Err(error) = LocalStorage::set(STORAGE_KEY, preference) {
+            log::warn(&format!("Failed to save theme: {error}"));
+        }
+    });
 
-    // Effect: Apply theme to DOM
     {
-        use_effect_with(effective_theme, move |theme| {
-            apply_theme_to_dom(*theme);
-            || ()
-        });
-    }
-
-    // Effect: Listen to system preference changes
-    {
-        let system_preference = system_preference;
+        let setter = system.setter();
         use_effect_with((), move |()| {
-            let listener = setup_media_query_listener(system_preference.setter());
+            let listener = dark_query().map(|query| {
+                EventListener::new(&query, "change", move |_| setter.set(system_scheme()))
+            });
             move || drop(listener)
         });
     }
 
-    // Effect: Persist theme to localStorage
-    {
-        let theme_value = *theme;
-        use_effect_with(theme_value, move |theme| {
-            save_theme_preference(*theme);
-            || ()
-        });
-    }
-
-    // Toggle callback: switches between Light and Dark
-    let toggle = {
-        let theme = theme.clone();
-        Callback::from(move |()| {
-            let new_theme = match *theme {
-                Theme::Dark => Theme::Light,
-                _ => Theme::Dark,
-            };
-            theme.set(new_theme);
-        })
-    };
-
-    // Set theme callback
-    let set_theme = {
-        let theme = theme.clone();
-        Callback::from(move |new_theme| theme.set(new_theme))
+    let cycle = {
+        let preference = preference.clone();
+        let system = *system;
+        Callback::from(move |()| preference.set(preference.next(system)))
     };
 
     ThemeHandle {
-        theme: *theme,
-        effective_theme,
-        toggle,
-        set_theme,
+        preference: *preference,
+        scheme,
+        cycle,
     }
 }
 
-/// Detect system's preferred color scheme
-fn detect_system_preference() -> Theme {
-    web_sys::window()
-        .and_then(|w| w.match_media("(prefers-color-scheme: dark)").ok().flatten())
-        .map_or(Theme::Light, |mq| {
-            if mq.matches() {
-                Theme::Dark
-            } else {
-                Theme::Light
-            }
-        })
+fn load_preference() -> ThemePreference {
+    LocalStorage::get(STORAGE_KEY).unwrap_or_default()
 }
 
-/// Apply theme to DOM by setting data-theme attribute on <html>
-fn apply_theme_to_dom(theme: Theme) {
-    if let Some(document) = web_sys::window().and_then(|w| w.document())
-        && let Some(html) = document.document_element()
-    {
-        let theme_str = match theme {
-            Theme::Dark => "dark",
-            Theme::Light => "light",
-            Theme::Auto => "light", // Auto should already be resolved
-        };
-        let _ = html.set_attribute("data-theme", theme_str);
-    }
+fn dark_query() -> Option<web_sys::MediaQueryList> {
+    web_sys::window()?.match_media(DARK_QUERY).ok().flatten()
 }
 
-/// Load theme preference from localStorage
-fn load_theme_preference() -> Option<Theme> {
-    if let Ok(raw) = gloo_storage::LocalStorage::get::<String>("theme") {
-        if let Some(theme) = Theme::from_storage_value(&raw) {
-            Some(theme)
-        } else {
-            web_sys::console::warn_1(
-                &format!("Ignoring invalid theme preference in localStorage: {raw}").into(),
-            );
-            None
-        }
+fn system_scheme() -> ColorScheme {
+    if dark_query().is_some_and(|query| query.matches()) {
+        ColorScheme::Dark
     } else {
-        web_sys::console::warn_1(
-            &"localStorage unavailable or read failed, using default theme".into(),
+        ColorScheme::Light
+    }
+}
+
+fn apply_to_document(scheme: ColorScheme) {
+    if let Some(root) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.document_element())
+    {
+        let _ = root.set_attribute("data-theme", scheme.as_str());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn first_toggle_from_auto_flips_the_visible_scheme() {
+        assert_eq!(
+            ThemePreference::Auto.next(ColorScheme::Light),
+            ThemePreference::Dark
         );
-        None
+        assert_eq!(
+            ThemePreference::Auto.next(ColorScheme::Dark),
+            ThemePreference::Light
+        );
     }
-}
 
-/// Save theme preference to localStorage
-fn save_theme_preference(theme: Theme) {
-    if let Err(e) = gloo_storage::LocalStorage::set("theme", theme.storage_value()) {
-        web_sys::console::warn_1(&format!("Failed to save theme: {e:?}").into());
+    #[test]
+    fn cycle_visits_both_schemes_then_returns_to_auto() {
+        for system in [ColorScheme::Light, ColorScheme::Dark] {
+            let first = ThemePreference::Auto.next(system);
+            let second = first.next(system);
+            let third = second.next(system);
+
+            assert_ne!(first.resolve(system), second.resolve(system));
+            assert_eq!(third, ThemePreference::Auto);
+        }
     }
-}
 
-/// Setup `MediaQueryList` event listener for system preference changes
-fn setup_media_query_listener(setter: UseStateSetter<Theme>) -> Option<EventListener> {
-    web_sys::window()
-        .and_then(|w| w.match_media("(prefers-color-scheme: dark)").ok().flatten())
-        .map(|mq| {
-            let target = mq.dyn_into::<web_sys::EventTarget>().unwrap();
-            EventListener::new(&target, "change", move |_event| {
-                setter.set(detect_system_preference());
-            })
-        })
+    #[test]
+    fn stored_values_match_the_boot_script() {
+        assert_eq!(
+            serde_json::to_string(&ThemePreference::Dark).unwrap(),
+            r#""dark""#
+        );
+        assert_eq!(
+            serde_json::from_str::<ThemePreference>(r#""auto""#).unwrap(),
+            ThemePreference::Auto
+        );
+    }
 }

@@ -10,7 +10,7 @@ use crate::hooks::use_historical_rates::use_historical_rates;
 use crate::hooks::use_now::use_now;
 use crate::hooks::use_rates::use_rates;
 use crate::hooks::use_region::use_region;
-use crate::hooks::use_theme::{Theme, use_theme};
+use crate::hooks::use_theme::{ColorScheme, use_theme};
 use crate::hooks::use_tracker::use_tracker_rates;
 
 #[function_component(App)]
@@ -39,8 +39,8 @@ pub fn app() -> Html {
                 <h1>{"Octopus Agile Dashboard"}</h1>
                 <RegionSelector region={region} on_change={region_handle.set_region.clone()} />
                 <ThemeToggle
-                    effective_theme={theme_handle.effective_theme}
-                    on_toggle={theme_handle.toggle.clone()}
+                    preference={theme_handle.preference}
+                    on_cycle={theme_handle.cycle.clone()}
                 />
             </header>
 
@@ -91,7 +91,7 @@ pub fn app() -> Html {
                     // Chart
                     <section class="chart-section">
                         <h2>{"Energy Price Distribution"}</h2>
-                        <Chart rates={rates.clone()} {now} dark_mode={theme_handle.effective_theme == Theme::Dark} />
+                        <Chart rates={rates.clone()} {now} dark_mode={theme_handle.scheme == ColorScheme::Dark} />
                     </section>
 
                     // Carbon tracking
