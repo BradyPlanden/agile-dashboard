@@ -1,18 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-GB">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Live Octopus Agile and Tracker electricity prices, a half-hourly price chart and GB grid carbon intensity for every UK region.">
+    <meta name="theme-color" content="#f8f9fa" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#2d2d2d" media="(prefers-color-scheme: dark)">
     <title>Octopus Agile Dashboard</title>
+    <script>
+        // Apply a saved theme before first paint; the app takes over once loaded.
+        try {
+            const theme = JSON.parse(localStorage.getItem("theme"));
+            if (theme === "light" || theme === "dark") {
+                document.documentElement.dataset.theme = theme;
+            }
+        } catch {}
+    </script>
+    <!-- wasm-opt must be told about the WebAssembly features rustc now emits by default. -->
+    <link
+        data-trunk
+        rel="rust"
+        data-wasm-opt="z"
+        data-wasm-opt-params="--enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue"
+    />
     <link data-trunk rel="copy-file" href="favicon.svg">
     <link data-trunk rel="copy-file" href="robots.txt">
     <link data-trunk rel="copy-file" href="llms.txt">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link data-trunk rel="css" href="src/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js" integrity="sha384-BQKzmHvQLMCAnL3UtDBA1Al5tFjsCz1wrMlIUA1wkzo14DYkRWjywW+p9pCj0cwd" crossorigin="anonymous"></script>
 </head>
 <body>
-    <div id="app"></div>
+    <!-- Placeholder shown while the WebAssembly loads; Yew replaces it on mount. -->
+    <div id="app">
+        <div class="app" aria-busy="true">
+            <header class="app-header">
+                <h1>Octopus Agile Dashboard</h1>
+            </header>
+            <main class="app-main">
+                <div class="card history-card"><div class="skeleton"></div></div>
+                <div class="card now-card"><div class="skeleton"></div></div>
+                <div class="card chart-card"><div class="skeleton"></div></div>
+                <div class="card agile-card"><div class="skeleton"></div></div>
+            </main>
+        </div>
+    </div>
 </body>
 </html>

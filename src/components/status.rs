@@ -1,30 +1,28 @@
-use crate::models::load_state::LoadState;
-use crate::models::rates::Rates;
+use chrono::{DateTime, Utc};
 use yew::prelude::*;
+
+use crate::utils::time::london_hhmm;
 
 #[derive(Properties, PartialEq)]
 pub struct StatusProps {
-    pub state: LoadState<Rates>,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub on_refresh: Callback<()>,
 }
 
+/// When prices were last fetched, with a button to fetch everything again now.
 #[function_component(Status)]
 pub fn status(props: &StatusProps) -> Html {
-    match &props.state {
-        LoadState::Loading => html! {
-            <div class="status loading" role="status" aria-live="polite" aria-label="Loading data">
-                <div class="spinner" aria-hidden="true"></div>
-                <p>{"Loading data..."}</p>
-            </div>
-        },
-        LoadState::Loaded(_) => html! {
-            <div class="status success" role="status" aria-live="polite">
-                <p>{"✅ Data loaded successfully"}</p>
-            </div>
-        },
-        LoadState::Error(msg) => html! {
-            <div class="status error" role="alert" aria-live="assertive">
-                <p>{"❌ Error: "}{msg}</p>
-            </div>
-        },
+    html! {
+        <p class="status-line">
+            <span role="status">
+                { props.updated_at.map_or_else(
+                    || "Fetching latest prices…".to_owned(),
+                    |at| format!("Prices updated {}", london_hhmm(at)),
+                ) }
+            </span>
+            <button type="button" class="link-button" onclick={props.on_refresh.reform(|_| ())}>
+                { "Refresh" }
+            </button>
+        </p>
     }
 }

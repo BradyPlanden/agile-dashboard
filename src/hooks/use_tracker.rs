@@ -1,14 +1,13 @@
-use crate::models::load_state::LoadState;
-use crate::models::rates::TrackerRates;
-use crate::services::api::{Region, fetch_tracker_rates_for_region};
 use yew::prelude::*;
 
-/// Hook that fetches and polls Tracker rates for a given region.
+use crate::config::POLL_INTERVAL_MS;
+use crate::hooks::use_polling::{Polled, use_polling};
+use crate::models::rates::Rates;
+use crate::models::region::Region;
+use crate::services::octopus::fetch_tracker_rates;
+
+/// Tracker rates for today and tomorrow in `region`, refreshed periodically.
 #[hook]
-pub fn use_tracker_rates(region: Region) -> LoadState<TrackerRates> {
-    let region_for_fetch = region;
-    crate::models::load_state::use_polling_with_key(
-        move || fetch_tracker_rates_for_region(region_for_fetch),
-        region,
-    )
+pub fn use_tracker_rates(region: Region) -> Polled<Rates> {
+    use_polling(region, POLL_INTERVAL_MS, fetch_tracker_rates)
 }

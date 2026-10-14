@@ -1,7 +1,7 @@
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 
-use crate::services::api::Region;
+use crate::models::region::Region;
 
 #[derive(Properties, PartialEq)]
 pub struct RegionSelectorProps {
@@ -9,37 +9,29 @@ pub struct RegionSelectorProps {
     pub on_change: Callback<Region>,
 }
 
-/// Region selector dropdown component
+/// Drop-down for choosing the electricity distribution region.
 #[function_component(RegionSelector)]
 pub fn region_selector(props: &RegionSelectorProps) -> Html {
-    let on_change = {
-        let callback = props.on_change.clone();
-        Callback::from(move |e: Event| {
-            let target: HtmlSelectElement = e.target_unchecked_into();
-            let value = target.value();
-            if let Ok(region) = value.parse::<Region>() {
-                callback.emit(region);
+    let onchange = {
+        let on_change = props.on_change.clone();
+        Callback::from(move |event: Event| {
+            let select: HtmlSelectElement = event.target_unchecked_into();
+            if let Ok(region) = select.value().parse() {
+                on_change.emit(region);
             }
         })
     };
 
     html! {
-        <select
-            class="region-selector"
-            onchange={on_change}
-            aria-label="Select electricity region"
-            title="Select electricity region"
-        >
-            {
-                Region::all().iter().map(|r| {
-                    let code = r.code();
-                    let label = format!("{} ({})", r.description(), code);
-                    let selected = *r == props.region;
-                    html! {
-                        <option value={code} {selected}>{label}</option>
-                    }
-                }).collect::<Html>()
-            }
-        </select>
+        <label class="select-wrap">
+            <span class="sr-only">{ "Electricity region" }</span>
+            <select class="control region-select" {onchange}>
+                { for Region::ALL.into_iter().map(|region| html! {
+                    <option value={region.code()} selected={region == props.region}>
+                        { region.to_string() }
+                    </option>
+                }) }
+            </select>
+        </label>
     }
 }

@@ -1,38 +1,31 @@
 use yew::prelude::*;
 
-use crate::hooks::use_theme::Theme;
+use crate::hooks::use_theme::ThemePreference;
 
 #[derive(Properties, PartialEq)]
 pub struct ThemeToggleProps {
-    pub effective_theme: Theme,
-    pub on_toggle: Callback<()>,
+    pub preference: ThemePreference,
+    pub on_cycle: Callback<()>,
 }
 
-/// Theme toggle button component
+/// Cycles the theme preference between automatic, light and dark.
 #[function_component(ThemeToggle)]
 pub fn theme_toggle(props: &ThemeToggleProps) -> Html {
-    // Determine icon and label based on effective theme
-    let (icon, label) = match props.effective_theme {
-        Theme::Dark => ("☀️", "Switch to light mode"),
-        Theme::Light => ("🌙", "Switch to dark mode"),
-        Theme::Auto => ("🌓", "Auto theme"),
-    };
-
-    let onclick = {
-        let toggle = props.on_toggle.clone();
-        Callback::from(move |_| toggle.emit(()))
+    let (icon, label) = match props.preference {
+        ThemePreference::Auto => ("🌓", "Theme: automatic"),
+        ThemePreference::Light => ("☀️", "Theme: light"),
+        ThemePreference::Dark => ("🌙", "Theme: dark"),
     };
 
     html! {
         <button
-            class="theme-toggle"
-            {onclick}
-            aria-label={label}
-            aria-pressed={if props.effective_theme == Theme::Dark { "true" } else { "false" }}
+            type="button"
+            class="control icon-button"
+            onclick={props.on_cycle.reform(|_| ())}
             title={label}
         >
-            <span aria-hidden="true">{icon}</span>
-            <span class="sr-only">{label}</span>
+            <span aria-hidden="true">{ icon }</span>
+            <span class="sr-only">{ format!("{label}. Change theme") }</span>
         </button>
     }
 }

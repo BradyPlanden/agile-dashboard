@@ -1,4 +1,8 @@
-use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, NaiveTime, Utc, Weekday};
+use std::fmt::Display;
+
+use chrono::{
+    DateTime, Datelike, Duration, DurationRound, FixedOffset, NaiveDate, NaiveTime, Utc, Weekday,
+};
 
 const BST_OFFSET_SECONDS: i32 = 60 * 60;
 
@@ -10,8 +14,23 @@ pub fn london_date(dt: DateTime<Utc>) -> NaiveDate {
     london_time(dt).date_naive()
 }
 
-pub fn london_today() -> NaiveDate {
-    london_date(Utc::now())
+/// `dt` as London clock time, e.g. `14:30`.
+pub fn london_hhmm(dt: DateTime<Utc>) -> impl Display {
+    london_time(dt).format("%H:%M")
+}
+
+/// `Now` if `start` has already arrived, otherwise its London clock time.
+pub fn start_label(start: DateTime<Utc>, now: DateTime<Utc>) -> String {
+    if start <= now {
+        "Now".to_owned()
+    } else {
+        london_hhmm(start).to_string()
+    }
+}
+
+/// Start of the half-hour pricing slot containing `dt`.
+pub fn slot_start(dt: DateTime<Utc>) -> DateTime<Utc> {
+    dt.duration_trunc(Duration::minutes(30)).unwrap_or(dt)
 }
 
 pub fn london_midnight_utc(date: NaiveDate) -> DateTime<Utc> {
@@ -82,6 +101,27 @@ mod tests {
             london_time(after).format("%Y-%m-%d %H:%M").to_string(),
             "2026-03-29 02:30"
         );
+    }
+
+    #[test]
+    fn start_label_says_now_once_started() {
+        let now = Utc.with_ymd_and_hms(2026, 6, 1, 13, 10, 0).unwrap();
+        let earlier = Utc.with_ymd_and_hms(2026, 6, 1, 13, 0, 0).unwrap();
+        let later = Utc.with_ymd_and_hms(2026, 6, 1, 14, 30, 0).unwrap();
+
+        assert_eq!(start_label(earlier, now), "Now");
+        assert_eq!(start_label(now, now), "Now");
+        assert_eq!(start_label(later, now), "15:30"); // BST
+    }
+
+    #[test]
+    fn slot_start_truncates_to_the_half_hour() {
+        let dt = Utc.with_ymd_and_hms(2026, 3, 29, 14, 47, 12).unwrap();
+        assert_eq!(
+            slot_start(dt),
+            Utc.with_ymd_and_hms(2026, 3, 29, 14, 30, 0).unwrap()
+        );
+        assert_eq!(slot_start(slot_start(dt)), slot_start(dt));
     }
 
     #[test]

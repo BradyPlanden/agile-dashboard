@@ -1,313 +1,114 @@
-#[cfg(test)]
-mod tests {
-    use agile_dashboard::models::{
-        error::AppError,
-        load_state::LoadState,
-        rates::{Rate, Rates, TrackerRates},
-    };
-    use agile_dashboard::utils::time::{london_midnight_utc, london_today};
-    use chrono::{Days, Duration, TimeZone, Utc};
-    use std::rc::Rc;
+use agile_dashboard::models::rates::{Rate, Rates};
+use agile_dashboard::utils::time::{london_date, london_midnight_utc};
+use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 
-    // Helper function to create test rates
-    fn create_test_rates() -> Vec<Rate> {
-        vec![
-            Rate {
-                value_inc_vat: 15.5,
-                value_exc_vat: 15.5 / 1.2,
-                valid_from: Utc.with_ymd_and_hms(2025, 10, 4, 0, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2025, 10, 4, 0, 30, 0).unwrap(),
-            },
-            Rate {
-                value_inc_vat: 20.3,
-                value_exc_vat: 20.3 / 1.2,
-                valid_from: Utc.with_ymd_and_hms(2025, 10, 4, 0, 30, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2025, 10, 4, 1, 0, 0).unwrap(),
-            },
-            Rate {
-                value_inc_vat: 18.7,
-                value_exc_vat: 18.7 / 1.2,
-                valid_from: Utc.with_ymd_and_hms(2025, 10, 4, 1, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2025, 10, 4, 1, 30, 0).unwrap(),
-            },
-        ]
+fn utc(y: i32, m: u32, d: u32, h: u32, min: u32) -> DateTime<Utc> {
+    Utc.with_ymd_and_hms(y, m, d, h, min, 0).unwrap()
+}
+
+const fn date(y: i32, m: u32, d: u32) -> NaiveDate {
+    NaiveDate::from_ymd_opt(y, m, d).unwrap()
+}
+
+/// Contiguous half-hourly rates from London midnight on `first` to London midnight after
+/// `last`, priced by slot index.
+fn agile_days(first: NaiveDate, last: NaiveDate) -> Rates {
+    let end = london_midnight_utc(last.succ_opt().unwrap());
+    let mut start = london_midnight_utc(first);
+    let mut rates = Vec::new();
+    while start < end {
+        rates.push(Rate {
+            value_inc_vat: rates.len() as f64,
+            value_exc_vat: rates.len() as f64 / 1.05,
+            valid_from: start,
+            valid_to: start + Duration::minutes(30),
+        });
+        start += Duration::minutes(30);
     }
+    Rates::new(rates)
+}
 
-    // ===== Error Type Tests =====
+#[test]
+fn agile_days_have_the_right_number_of_slots_across_clock_changes() {
+    let rates = agile_days(date(2026, 3, 28), date(2026, 3, 30));
 
-    #[test]
-    fn test_app_error_api_display() {
-        let error = AppError::ApiError("Connection failed".to_string());
-        assert_eq!(error.to_string(), "API Error: Connection failed");
+    assert_eq!(rates.for_date(date(2026, 3, 28)).len(), 48);
+    assert_eq!(rates.for_date(date(2026, 3, 29)).len(), 46);
+    assert_eq!(rates.for_date(date(2026, 3, 30)).len(), 48);
+
+    let autumn = agile_days(date(2026, 10, 25), date(2026, 10, 25));
+    assert_eq!(autumn.for_date(date(2026, 10, 25)).len(), 50);
+}
+
+#[test]
+fn current_next_and_tomorrow_are_found_late_on_a_bst_evening() {
+    // 23:40 UTC on 1 June is 00:40 BST on 2 June: "today" is already the 2nd in London.
+    let rates = agile_days(date(2026, 6, 1), date(2026, 6, 3));
+    let now = utc(2026, 6, 1, 23, 40);
+
+    assert_eq!(london_date(now), date(2026, 6, 2));
+    let current = rates.rate_at(now).unwrap();
+    assert_eq!(current.valid_from, utc(2026, 6, 1, 23, 30));
+    assert_eq!(
+        rates.next_rate(now).unwrap().valid_from,
+        utc(2026, 6, 2, 0, 0)
+    );
+    assert_eq!(rates.stats_for_date(date(2026, 6, 3)).unwrap().count, 48);
+}
+
+#[test]
+fn cheapest_upcoming_slot_considers_the_current_slot() {
+    let mut data: Vec<Rate> = agile_days(date(2026, 1, 15), date(2026, 1, 15))
+        .as_slice()
+        .to_vec();
+    for rate in &mut data {
+        rate.value_inc_vat = 20.0;
     }
+    data[28].value_inc_vat = 4.0; // 14:00, the current slot
+    data[31].value_inc_vat = 3.0; // 15:30
+    data[35].value_inc_vat = 1.0; // 17:30, more than three hours away
+    let rates = Rates::new(data);
+    let now = utc(2026, 1, 15, 14, 10);
 
-    #[test]
-    fn test_app_error_data_display() {
-        let error = AppError::DataError("Invalid data".to_string());
-        assert_eq!(error.to_string(), "Data Error: Invalid data");
-    }
+    let cheapest = rates
+        .cheapest_between(utc(2026, 1, 15, 14, 0), now + Duration::hours(3))
+        .unwrap();
+    assert_eq!(cheapest.valid_from, utc(2026, 1, 15, 15, 30));
+}
 
-    // ===== Rate Model Tests =====
+#[test]
+fn tracker_daily_rates_switch_at_london_midnight() {
+    // Tracker publishes one rate per London day.
+    let rates = Rates::new(
+        [(date(2026, 6, 1), 20.67), (date(2026, 6, 2), 22.35)]
+            .into_iter()
+            .map(|(day, price)| Rate {
+                value_inc_vat: price,
+                value_exc_vat: price / 1.05,
+                valid_from: london_midnight_utc(day),
+                valid_to: london_midnight_utc(day.succ_opt().unwrap()),
+            })
+            .collect(),
+    );
 
-    #[test]
-    fn test_rate_deserialization() {
-        let json = r#"{
-            "value_inc_vat": 15.5,
-            "value_exc_vat": 12.92,
-            "valid_from": "2025-10-04T00:00:00Z",
-            "valid_to": "2025-10-04T00:30:00Z"
-        }"#;
+    let evening = utc(2026, 6, 1, 22, 30); // 23:30 BST on 1 June
+    let after_midnight = utc(2026, 6, 1, 23, 30); // 00:30 BST on 2 June
 
-        let rate: Result<Rate, _> = serde_json::from_str(json);
-        assert!(rate.is_ok());
+    assert_eq!(rates.rate_at(evening).unwrap().value_inc_vat, 20.67);
+    assert_eq!(rates.for_date(date(2026, 6, 2))[0].value_inc_vat, 22.35);
+    assert_eq!(rates.rate_at(after_midnight).unwrap().value_inc_vat, 22.35);
+}
 
-        let rate = rate.unwrap();
-        assert_eq!(rate.value_inc_vat, 15.5);
-        assert_eq!(rate.value_exc_vat, 12.92);
-    }
+#[test]
+fn rates_deserialize_from_the_api_shape() {
+    let json = r#"[{
+        "value_inc_vat": 15.5,
+        "value_exc_vat": 14.76,
+        "valid_from": "2025-10-04T00:00:00Z",
+        "valid_to": "2025-10-04T00:30:00Z"
+    }]"#;
 
-    #[test]
-    fn test_rate_equality() {
-        let rate1 = Rate {
-            value_inc_vat: 15.5,
-            value_exc_vat: 15.5 / 1.2,
-            valid_from: Utc.with_ymd_and_hms(2025, 10, 4, 0, 0, 0).unwrap(),
-            valid_to: Utc.with_ymd_and_hms(2025, 10, 4, 0, 30, 0).unwrap(),
-        };
-
-        let rate2 = Rate {
-            value_inc_vat: 15.5,
-            value_exc_vat: 15.5 / 1.2,
-            valid_from: Utc.with_ymd_and_hms(2025, 10, 4, 0, 0, 0).unwrap(),
-            valid_to: Utc.with_ymd_and_hms(2025, 10, 4, 0, 30, 0).unwrap(),
-        };
-
-        assert_eq!(rate1, rate2);
-    }
-
-    // ===== Rates Model Tests =====
-
-    #[test]
-    fn test_rates_series_data_format() {
-        let today = london_today();
-        let today_midnight = london_midnight_utc(today);
-
-        let rates_vec = vec![
-            Rate {
-                value_inc_vat: 15.5,
-                value_exc_vat: 15.5 / 1.2,
-                valid_from: today_midnight,
-                valid_to: today_midnight + Duration::minutes(30),
-            },
-            Rate {
-                value_inc_vat: 20.3,
-                value_exc_vat: 20.3 / 1.2,
-                valid_from: today_midnight + Duration::minutes(30),
-                valid_to: today_midnight + Duration::hours(1),
-            },
-        ];
-
-        let rates = Rates::new(rates_vec);
-        let result = rates.series_data_for_date(today);
-
-        assert!(result.is_ok());
-        let (x_data, y_data) = result.unwrap();
-
-        assert_eq!(x_data.len(), y_data.len());
-        assert_eq!(x_data.len(), 2);
-        assert_eq!(y_data[0], 15.5);
-        assert_eq!(y_data[1], 20.3);
-
-        // Check format includes date and time
-        assert!(x_data[0].contains("00:00"));
-    }
-
-    #[test]
-    fn test_rates_series_data_sorting() {
-        let today_midnight = london_midnight_utc(london_today());
-
-        // Create rates in reverse chronological order
-        let rates_vec = vec![
-            Rate {
-                value_inc_vat: 20.3,
-                value_exc_vat: 20.3 / 1.2,
-                valid_from: today_midnight + Duration::minutes(30),
-                valid_to: today_midnight + Duration::hours(1),
-            },
-            Rate {
-                value_inc_vat: 15.5,
-                value_exc_vat: 15.5 / 1.2,
-                valid_from: today_midnight,
-                valid_to: today_midnight + Duration::minutes(30),
-            },
-        ];
-
-        let rates = Rates::new(rates_vec);
-        let result = rates.series_data_for_date(london_today());
-
-        assert!(result.is_ok());
-        let (x_data, y_data) = result.unwrap();
-
-        // Should be sorted by time, so 15.5 comes first
-        assert_eq!(y_data[0], 15.5);
-        assert_eq!(y_data[1], 20.3);
-        assert!(x_data[0].contains("00:00"));
-        assert!(x_data[1].contains("00:30"));
-    }
-
-    // ===== LoadState Tests =====
-
-    #[test]
-    fn test_data_state_data_extraction() {
-        let rates = Rc::new(Rates::new(create_test_rates()));
-        let loaded = LoadState::Loaded(rates.clone());
-
-        assert!(loaded.data().is_some());
-        assert_eq!(loaded.data().unwrap(), &rates);
-
-        let loading: LoadState<Rates> = LoadState::Loading;
-        assert!(loading.data().is_none());
-
-        let error: LoadState<Rates> = LoadState::Error("Test error".to_string());
-        assert!(error.data().is_none());
-    }
-
-    #[test]
-    fn test_data_state_equality() {
-        let state1: LoadState<Rates> = LoadState::Loading;
-        let state2: LoadState<Rates> = LoadState::Loading;
-        assert_eq!(state1, state2);
-
-        let state3: LoadState<Rates> = LoadState::Error("Test error".to_string());
-        let state4: LoadState<Rates> = LoadState::Error("Test error".to_string());
-        assert_eq!(state3, state4);
-
-        let rates1 = Rc::new(Rates::new(create_test_rates()));
-        let rates2 = Rc::new(Rates::new(create_test_rates()));
-        let state5 = LoadState::Loaded(rates1);
-        let state6 = LoadState::Loaded(rates2);
-        assert_eq!(state5, state6);
-    }
-
-    // ===== TrackerRates Tests =====
-
-    fn create_tracker_test_data() -> Vec<Rate> {
-        let today = Utc::now().date_naive();
-        let tomorrow = today.checked_add_days(Days::new(1)).unwrap();
-
-        vec![
-            Rate {
-                value_inc_vat: 15.5,
-                value_exc_vat: 15.5 / 1.2,
-                valid_from: Utc.from_utc_datetime(&today.and_hms_opt(0, 0, 0).unwrap()),
-                valid_to: Utc.from_utc_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap()),
-            },
-            Rate {
-                value_inc_vat: 17.2,
-                value_exc_vat: 17.2 / 1.2,
-                valid_from: Utc.from_utc_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap()),
-                valid_to: Utc.from_utc_datetime(
-                    &tomorrow
-                        .checked_add_days(Days::new(1))
-                        .unwrap()
-                        .and_hms_opt(0, 0, 0)
-                        .unwrap(),
-                ),
-            },
-        ]
-    }
-
-    #[test]
-    fn test_tracker_current_price() {
-        let rates = TrackerRates::new(create_tracker_test_data());
-        assert_eq!(rates.current_price(), Some(15.5));
-    }
-
-    #[test]
-    fn test_tracker_next_day_price() {
-        let rates = TrackerRates::new(create_tracker_test_data());
-        assert_eq!(rates.next_day_price(), Some(17.2));
-    }
-
-    #[test]
-    fn test_tracker_price_difference() {
-        let rates = TrackerRates::new(create_tracker_test_data());
-        let diff = rates.price_difference().unwrap();
-        assert!((diff - 1.7).abs() < 0.01);
-    }
-
-    #[test]
-    fn test_tracker_missing_next_day() {
-        let today = Utc::now().date_naive();
-        let tomorrow = today.checked_add_days(Days::new(1)).unwrap();
-
-        let rates = TrackerRates::new(vec![Rate {
-            value_inc_vat: 15.5,
-            value_exc_vat: 15.5 / 1.2,
-            valid_from: Utc.from_utc_datetime(&today.and_hms_opt(0, 0, 0).unwrap()),
-            valid_to: Utc.from_utc_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap()),
-        }]);
-
-        assert_eq!(rates.current_price(), Some(15.5));
-        assert_eq!(rates.next_day_price(), None);
-        assert_eq!(rates.price_difference(), None);
-    }
-
-    #[test]
-    fn test_tracker_with_example_response_data() {
-        // Data from example-response.json (adapted to use dynamic dates)
-        // This test verifies TrackerRates works with real-world API response structure
-        let today = Utc::now().date_naive();
-        let yesterday = today.checked_sub_days(Days::new(1)).unwrap();
-        let tomorrow = today.checked_add_days(Days::new(1)).unwrap();
-
-        let rates_data = vec![
-            Rate {
-                value_exc_vat: 16.47,
-                value_inc_vat: 17.2935,
-                valid_from: Utc.from_utc_datetime(&yesterday.and_hms_opt(0, 0, 0).unwrap()),
-                valid_to: Utc.from_utc_datetime(&today.and_hms_opt(0, 0, 0).unwrap()),
-            },
-            Rate {
-                value_exc_vat: 19.69,
-                value_inc_vat: 20.6745,
-                valid_from: Utc.from_utc_datetime(&today.and_hms_opt(0, 0, 0).unwrap()),
-                valid_to: Utc.from_utc_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap()),
-            },
-            Rate {
-                value_exc_vat: 21.29,
-                value_inc_vat: 22.3545,
-                valid_from: Utc.from_utc_datetime(&tomorrow.and_hms_opt(0, 0, 0).unwrap()),
-                valid_to: Utc.from_utc_datetime(
-                    &tomorrow
-                        .checked_add_days(Days::new(1))
-                        .unwrap()
-                        .and_hms_opt(0, 0, 0)
-                        .unwrap(),
-                ),
-            },
-        ];
-
-        let tracker = TrackerRates::new(rates_data);
-
-        // Since we're using dynamic dates, we expect:
-        // - current_price: 20.6745 (today)
-        // - next_day_price: 22.3545 (tomorrow)
-        let current = tracker.current_price();
-        let next_day = tracker.next_day_price();
-
-        println!("Current price: {:?}", current);
-        println!("Next day price: {:?}", next_day);
-
-        // Verify we get Some values back
-        assert!(current.is_some(), "Current price should be Some, got None");
-        assert!(
-            next_day.is_some(),
-            "Next day price should be Some, got None"
-        );
-
-        // Verify the values match expected prices from example data
-        assert_eq!(current.unwrap(), 20.6745);
-        assert_eq!(next_day.unwrap(), 22.3545);
-    }
+    let rates: Rates = serde_json::from_str(json).unwrap();
+    assert_eq!(rates.len(), 1);
+    assert_eq!(rates.as_slice()[0].valid_to, utc(2025, 10, 4, 0, 30));
 }

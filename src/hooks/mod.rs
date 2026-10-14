@@ -1,5 +1,8 @@
 pub mod use_carbon;
 pub mod use_historical_rates;
+pub mod use_now;
+pub mod use_page_visible;
+pub mod use_polling;
 pub mod use_rates;
 pub mod use_region;
 pub mod use_theme;

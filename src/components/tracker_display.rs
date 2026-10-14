@@ -1,64 +1,56 @@
-use crate::models::rates::TrackerRates;
 use std::rc::Rc;
+
+use chrono::{DateTime, Utc};
 use yew::prelude::*;
+
+use crate::models::rates::Rates;
+use crate::utils::time::london_date;
 
 #[derive(Properties, PartialEq)]
 pub struct TrackerDisplayProps {
-    pub rates: Rc<TrackerRates>,
+    pub rates: Rc<Rates>,
+    pub now: DateTime<Utc>,
 }
 
+/// Tracker's daily price today and tomorrow.
 #[function_component(TrackerDisplay)]
 pub fn tracker_display(props: &TrackerDisplayProps) -> Html {
-    // Single memoized computation for all three values
-    let prices = use_memo(props.rates.clone(), |rates| {
-        (
-            rates.current_price(),
-            rates.next_day_price(),
-            rates.price_difference(),
-        )
-    });
-
-    let (current, next_day, diff) = &*prices;
+    let tomorrow = london_date(props.now)
+        .succ_opt()
+        .expect("tomorrow is a valid date");
+    let today_price = props
+        .rates
+        .rate_at(props.now)
+        .map(|rate| rate.value_inc_vat);
+    let tomorrow_price = props
+        .rates
+        .for_date(tomorrow)
+        .first()
+        .map(|rate| rate.value_inc_vat);
 
     html! {
-        <div class="tracker-display">
-            <div class="tracker-grid">
-                <div class="tracker-item">
-                    <h3>{"Current Price"}</h3>
-                    <p class="tracker-value">
-                        {
-                            if let Some(price) = current {
-                                format!("{price:.2}p/kWh")
-                            } else {
-                                "N/A".to_string()
-                            }
-                        }
-                    </p>
-                </div>
-                <div class="tracker-item-tomorrow">
-                    <h3>{"Tomorrow's Price"}</h3>
-                    <p class="tracker-value">
-                        {
-                            match (next_day, diff) {
-                                (Some(price), Some(difference)) => {
-                                    let sign = if *difference >= 0.0 { "+" } else { "" };
-                                    let class = if *difference >= 0.0 { "price-increase" } else { "price-decrease" };
-                                    html! {
-                                        <>
-                                            {format!("{:.2}p/kWh ", price)}
-                                            <span class={class}>
-                                                {format!("({}{}p)", sign, format!("{:.2}", difference))}
-                                            </span>
-                                        </>
-                                    }
-                                },
-                                (Some(price), None) => html! { {format!("{:.2}p/kWh", price)} },
-                                (None, _) => html! { {"Awaiting data"} },
-                            }
-                        }
-                    </p>
-                </div>
+        <dl class="stat-grid">
+            <div class="stat">
+                <dt>{ "Today" }</dt>
+                <dd class="stat-value">
+                    { today_price.map_or_else(|| "N/A".to_owned(), |price| format!("{price:.2}p/kWh")) }
+                </dd>
             </div>
-        </div>
+            <div class="stat stat-highlight">
+                <dt>{ "Tomorrow" }</dt>
+                <dd class="stat-value">
+                    if let Some(price) = tomorrow_price {
+                        { format!("{price:.2}p/kWh ") }
+                        if let Some(today) = today_price {
+                            <span class={classes!("delta", if price > today { "delta-up" } else { "delta-down" })}>
+                                { format!("({:+.2}p)", price - today) }
+                            </span>
+                        }
+                    } else {
+                        <span class="placeholder">{ "Not published yet" }</span>
+                    }
+                </dd>
+            </div>
+        </dl>
     }
 }

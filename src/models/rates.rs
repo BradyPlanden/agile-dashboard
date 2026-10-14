@@ -1,11 +1,11 @@
-use std::collections::BTreeMap;
 use std::fmt;
 
-use super::error::AppError;
-use crate::utils::time::{london_date, london_time, london_today};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Days, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::utils::time::london_midnight_utc;
+
+/// One unit rate, as returned by the Octopus API.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Rate {
     pub value_inc_vat: f64,
@@ -14,570 +14,385 @@ pub struct Rate {
     pub valid_to: DateTime<Utc>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+impl Rate {
+    /// Whether `time` falls within this rate's `[valid_from, valid_to)` slot.
+    pub fn covers(&self, time: DateTime<Utc>) -> bool {
+        self.valid_from <= time && time < self.valid_to
+    }
+}
+
+/// Unit rates sorted by `valid_from`, for Agile (half-hourly) or Tracker (daily) tariffs.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(from = "Vec<Rate>", into = "Vec<Rate>")]
 pub struct Rates {
     data: Vec<Rate>,
 }
 
-/// Statistics for a specific day (price range and average only)
-#[derive(Debug, Clone, PartialEq)]
-pub struct DayStats {
-    pub min: f64,
-    pub max: f64,
-    pub avg: f64,
-    pub rate_count: usize,
-}
-
-impl fmt::Display for DayStats {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:.2}p - {:.2}p", self.min, self.max)
+impl From<Vec<Rate>> for Rates {
+    fn from(data: Vec<Rate>) -> Self {
+        Self::new(data)
     }
 }
 
-/// Combined stats including today/tomorrow + current/next
-#[derive(Debug, Clone, PartialEq)]
-pub struct DailyStats {
-    pub today: DayStats,
-    pub tomorrow: Option<DayStats>,
-    pub current: f64,
-    pub next: f64,
+impl From<Rates> for Vec<Rate> {
+    fn from(rates: Rates) -> Self {
+        rates.data
+    }
 }
 
 impl Rates {
-    /// Creates a new Rates collection, sorting by `valid_from` time
+    /// Creates a collection, sorting by `valid_from`.
     pub fn new(mut data: Vec<Rate>) -> Self {
-        data.sort_by_key(|r| r.valid_from);
+        data.sort_by_key(|rate| rate.valid_from);
         Self { data }
     }
 
-    /// Extract all price values in chronological order (sorted by `valid_from`)
-    pub fn all_values(&self) -> Vec<f64> {
-        self.data.iter().map(|r| r.value_inc_vat).collect()
+    pub fn as_slice(&self) -> &[Rate] {
+        &self.data
     }
 
-    /// Merge another set of rates into this one, replacing matching time slots.
-    pub fn merged_with(&self, newer: &Self) -> Self {
-        let mut slots = BTreeMap::new();
-
-        for rate in &self.data {
-            slots.insert((rate.valid_from, rate.valid_to), rate.clone());
-        }
-
-        for rate in &newer.data {
-            slots.insert((rate.valid_from, rate.valid_to), rate.clone());
-        }
-
-        Self::new(slots.into_values().collect())
+    pub const fn len(&self) -> usize {
+        self.data.len()
     }
 
-    /// Restrict rates to a closed-open UTC window.
-    pub fn within_window(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Self {
-        Self::new(
-            self.data
-                .iter()
-                .filter(|rate| rate.valid_from >= start && rate.valid_to <= end)
-                .cloned()
-                .collect(),
-        )
+    pub const fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 
-    /// Find the rate valid at a specific time using binary search
-    /// Returns None if no rate covers the given time (gap or out of range)
+    /// Prices (inc. VAT) in chronological order.
+    pub fn values(&self) -> impl Iterator<Item = f64> + '_ {
+        self.data.iter().map(|rate| rate.value_inc_vat)
+    }
+
+    /// Rates starting at or after `start`.
+    pub fn starting_from(&self, start: DateTime<Utc>) -> &[Rate] {
+        &self.data[self.data.partition_point(|rate| rate.valid_from < start)..]
+    }
+
+    /// Rates starting within `[start, end)`.
+    pub fn starting_between(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> &[Rate] {
+        let rates = self.starting_from(start);
+        &rates[..rates.partition_point(|rate| rate.valid_from < end)]
+    }
+
+    /// Rates starting on the given London calendar date.
+    pub fn for_date(&self, date: NaiveDate) -> &[Rate] {
+        let next_day = date
+            .checked_add_days(Days::new(1))
+            .expect("date is far from the end of the calendar");
+        self.starting_between(london_midnight_utc(date), london_midnight_utc(next_day))
+    }
+
+    /// The rate in effect at `time`, or `None` if no slot covers it.
     pub fn rate_at(&self, time: DateTime<Utc>) -> Option<&Rate> {
-        // Find first index where valid_from > time
-        let idx = self.data.partition_point(|r| r.valid_from <= time);
-
-        // Step back to get the candidate rate
-        let rate = self.data.get(idx.checked_sub(1)?)?;
-
-        // Verify the rate actually covers this time (handles gaps)
-        (rate.valid_to > time).then_some(rate)
+        let index = self.data.partition_point(|rate| rate.valid_from <= time);
+        let rate = self.data.get(index.checked_sub(1)?)?;
+        rate.covers(time).then_some(rate)
     }
 
-    /// Find the rate immediately following the one valid at the given time
+    /// The rate immediately after the one in effect at `time`.
     pub fn next_rate(&self, time: DateTime<Utc>) -> Option<&Rate> {
-        let current = self.rate_at(time)?;
-        self.rate_at(current.valid_to)
+        self.rate_at(self.rate_at(time)?.valid_to)
     }
 
-    pub fn filter_from(&self, from: DateTime<Utc>) -> impl Iterator<Item = &Rate> {
-        self.data.iter().filter(move |r| r.valid_from >= from)
-    }
-
-    pub fn series_data_for_date(
-        &self,
-        start_of_today: chrono::NaiveDate,
-    ) -> Result<(Vec<String>, Vec<f64>), AppError> {
-        let (x_data, y_data): (Vec<_>, Vec<_>) = self
-            .data
+    /// The cheapest rate starting within `[start, end)`; the earliest wins a tie.
+    pub fn cheapest_between(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Option<&Rate> {
+        self.starting_between(start, end)
             .iter()
-            .filter(|r| london_date(r.valid_from) >= start_of_today)
-            .map(|r| {
-                (
-                    london_time(r.valid_from).format("%a %H:%M").to_string(),
-                    r.value_inc_vat,
-                )
+            .min_by(|a, b| a.value_inc_vat.total_cmp(&b.value_inc_vat))
+    }
+
+    /// The unbroken run of rates lasting `duration`, starting at or after `from`, with the
+    /// lowest average price; the earliest wins a tie.
+    pub fn cheapest_window(&self, from: DateTime<Utc>, duration: Duration) -> Option<PriceWindow> {
+        let rates = self.starting_from(from);
+        (0..rates.len())
+            .filter_map(|first| {
+                let start = rates[first].valid_from;
+                let mut end = start;
+                let mut sum = 0.0;
+                let mut count = 0_usize;
+                for rate in &rates[first..] {
+                    if rate.valid_from != end || end - start >= duration {
+                        break;
+                    }
+                    end = rate.valid_to;
+                    sum += rate.value_inc_vat;
+                    count += 1;
+                }
+                (end - start == duration).then(|| PriceWindow {
+                    start,
+                    end,
+                    average: sum / count as f64,
+                })
             })
-            .unzip();
-
-        if x_data.is_empty() {
-            return Err(AppError::DataError("No rates for today".to_string()));
-        }
-
-        Ok((x_data, y_data))
+            .min_by(|a, b| a.average.total_cmp(&b.average))
     }
 
-    /// Filter rates for a specific London local date
-    fn filter_for_date(&self, date: chrono::NaiveDate) -> Vec<&Rate> {
-        self.data
-            .iter()
-            .filter(|r| london_date(r.valid_from) == date)
-            .collect()
+    /// Price statistics for the given London calendar date.
+    pub fn stats_for_date(&self, date: NaiveDate) -> Option<PriceStats> {
+        PriceStats::from_values(self.for_date(date).iter().map(|rate| rate.value_inc_vat))
     }
 
-    /// Compute statistics for a specific date, returns None if no data
-    pub fn stats_for_date(&self, date: chrono::NaiveDate) -> Option<DayStats> {
-        let filtered_rates = self.filter_for_date(date);
+    /// Price statistics across every rate.
+    pub fn stats(&self) -> Option<PriceStats> {
+        PriceStats::from_values(self.values())
+    }
+}
 
-        if filtered_rates.is_empty() {
-            return None;
-        }
+/// A span of consecutive rates and their average price.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PriceWindow {
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
+    pub average: f64,
+}
 
-        let mut min = f64::INFINITY;
-        let mut max = f64::NEG_INFINITY;
+/// Range and average of a set of prices.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PriceStats {
+    pub min: f64,
+    pub max: f64,
+    pub avg: f64,
+    pub count: usize,
+}
+
+impl PriceStats {
+    /// Summarises `values`, or `None` if there are none.
+    pub fn from_values(values: impl IntoIterator<Item = f64>) -> Option<Self> {
+        let mut stats = Self {
+            min: f64::INFINITY,
+            max: f64::NEG_INFINITY,
+            avg: 0.0,
+            count: 0,
+        };
         let mut sum = 0.0;
-
-        for rate in &filtered_rates {
-            let val = rate.value_inc_vat;
-            min = min.min(val);
-            max = max.max(val);
-            sum += val;
+        for value in values {
+            stats.min = stats.min.min(value);
+            stats.max = stats.max.max(value);
+            sum += value;
+            stats.count += 1;
         }
-
-        let avg = sum / filtered_rates.len() as f64;
-
-        Some(DayStats {
-            min,
-            max,
-            avg,
-            rate_count: filtered_rates.len(),
-        })
-    }
-
-    /// Get comprehensive daily statistics for the given point in time.
-    pub fn daily_stats_at(&self, now: DateTime<Utc>) -> Result<DailyStats, AppError> {
-        let today = london_date(now);
-        let tomorrow = today + chrono::Duration::days(1);
-
-        let today_stats = self
-            .stats_for_date(today)
-            .ok_or_else(|| AppError::DataError("No data for today".to_string()))?;
-
-        let tomorrow_stats = self.stats_for_date(tomorrow);
-
-        let current = self.rate_at(now).map_or(0.0, |r| r.value_inc_vat);
-        let next = self.next_rate(now).map_or(0.0, |r| r.value_inc_vat);
-
-        Ok(DailyStats {
-            today: today_stats,
-            tomorrow: tomorrow_stats,
-            current,
-            next,
+        (stats.count > 0).then(|| Self {
+            avg: sum / stats.count as f64,
+            ..stats
         })
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct TrackerRates {
-    data: Vec<Rate>,
-}
-
-impl TrackerRates {
-    pub fn new(mut data: Vec<Rate>) -> Self {
-        data.sort_by_key(|r| r.valid_from);
-        Self { data }
-    }
-
-    pub fn current_rate(&self) -> Option<&Rate> {
-        let now = Utc::now();
-        self.data
-            .iter()
-            .find(|r| r.valid_from <= now && r.valid_to > now)
-    }
-
-    pub fn next_day_rate(&self) -> Option<&Rate> {
-        let today = london_today();
-        self.data.iter().find(|r| london_date(r.valid_from) > today)
-    }
-
-    pub fn current_price(&self) -> Option<f64> {
-        self.current_rate().map(|r| r.value_inc_vat)
-    }
-
-    pub fn next_day_price(&self) -> Option<f64> {
-        self.next_day_rate().map(|r| r.value_inc_vat)
-    }
-
-    pub fn price_difference(&self) -> Option<f64> {
-        match (self.current_price(), self.next_day_price()) {
-            (Some(current), Some(next)) => Some(next - current),
-            _ => None,
-        }
+impl fmt::Display for PriceStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:.2}p – {:.2}p", self.min, self.max)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
+    use chrono::{Duration, TimeZone};
 
-    fn make_rate(hour: u32, value: f64) -> Rate {
-        let valid_from = Utc.with_ymd_and_hms(2024, 1, 15, hour, 0, 0).unwrap();
-        let valid_to = Utc.with_ymd_and_hms(2024, 1, 15, hour, 30, 0).unwrap();
+    fn utc(y: i32, m: u32, d: u32, h: u32, min: u32) -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(y, m, d, h, min, 0).unwrap()
+    }
+
+    fn rate(valid_from: DateTime<Utc>, minutes: i64, value: f64) -> Rate {
         Rate {
             value_inc_vat: value,
-            value_exc_vat: value / 1.2,
+            value_exc_vat: value / 1.05,
             valid_from,
-            valid_to,
+            valid_to: valid_from + Duration::minutes(minutes),
         }
     }
 
-    #[test]
-    fn test_rate_at_finds_correct_rate() {
-        let rates = Rates::new(vec![
-            make_rate(10, 15.0),
-            make_rate(11, 20.0),
-            make_rate(12, 25.0),
-        ]);
-
-        let time = Utc.with_ymd_and_hms(2024, 1, 15, 11, 15, 0).unwrap();
-        let rate = rates.rate_at(time).unwrap();
-
-        assert_eq!(rate.value_inc_vat, 20.0);
+    fn half_hour(h: u32, min: u32, value: f64) -> Rate {
+        rate(utc(2024, 1, 15, h, min), 30, value)
     }
 
     #[test]
-    fn test_next_rate_finds_following_slot() {
-        // Create contiguous rates for this test
-        let valid_from_1 = Utc.with_ymd_and_hms(2024, 1, 15, 10, 0, 0).unwrap();
-        let valid_to_1 = Utc.with_ymd_and_hms(2024, 1, 15, 10, 30, 0).unwrap();
-        let valid_from_2 = valid_to_1;
-        let valid_to_2 = Utc.with_ymd_and_hms(2024, 1, 15, 11, 0, 0).unwrap();
+    fn new_sorts_by_start_time() {
+        let rates = Rates::new(vec![half_hour(11, 0, 2.0), half_hour(10, 0, 1.0)]);
+        assert_eq!(rates.values().collect::<Vec<_>>(), vec![1.0, 2.0]);
+    }
 
+    #[test]
+    fn rate_at_finds_the_covering_slot() {
         let rates = Rates::new(vec![
-            Rate {
-                value_inc_vat: 15.0,
-                value_exc_vat: 15.0 / 1.2,
-                valid_from: valid_from_1,
-                valid_to: valid_to_1,
-            },
-            Rate {
-                value_inc_vat: 20.0,
-                value_exc_vat: 20.0 / 1.2,
-                valid_from: valid_from_2,
-                valid_to: valid_to_2,
-            },
+            half_hour(10, 0, 15.0),
+            half_hour(10, 30, 20.0),
+            half_hour(11, 0, 25.0),
         ]);
 
-        let time = Utc.with_ymd_and_hms(2024, 1, 15, 10, 15, 0).unwrap();
-        let next = rates.next_rate(time).unwrap();
+        assert_eq!(
+            rates
+                .rate_at(utc(2024, 1, 15, 10, 45))
+                .unwrap()
+                .value_inc_vat,
+            20.0
+        );
+        assert_eq!(
+            rates
+                .rate_at(utc(2024, 1, 15, 10, 30))
+                .unwrap()
+                .value_inc_vat,
+            20.0
+        );
+        assert!(rates.rate_at(utc(2024, 1, 15, 9, 59)).is_none());
+    }
 
+    #[test]
+    fn rate_at_returns_none_in_a_gap() {
+        let rates = Rates::new(vec![half_hour(10, 0, 15.0)]);
+        assert!(rates.rate_at(utc(2024, 1, 15, 10, 45)).is_none());
+    }
+
+    #[test]
+    fn next_rate_spans_midnight() {
+        let rates = Rates::new(vec![half_hour(23, 0, 10.0), half_hour(23, 30, 20.0)]);
+        let next = rates.next_rate(utc(2024, 1, 15, 23, 29)).unwrap();
         assert_eq!(next.value_inc_vat, 20.0);
     }
 
     #[test]
-    fn test_rate_at_returns_none_for_gap() {
-        let rates = Rates::new(vec![make_rate(10, 15.0)]);
-
-        // Time after the only rate ends
-        let time = Utc.with_ymd_and_hms(2024, 1, 15, 10, 45, 0).unwrap();
-        assert!(rates.rate_at(time).is_none());
-    }
-
-    #[test]
-    fn test_filter_for_date_boundary() {
-        use chrono::NaiveDate;
-
-        // Create rates at 23:30 today and 00:00 tomorrow
-        let today = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
-        let tomorrow = NaiveDate::from_ymd_opt(2024, 1, 16).unwrap();
-
-        let rate_today_2330 = Rate {
-            value_inc_vat: 15.0,
-            value_exc_vat: 12.5,
-            valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 23, 30, 0).unwrap(),
-            valid_to: Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
-        };
-
-        let rate_tomorrow_0000 = Rate {
-            value_inc_vat: 20.0,
-            value_exc_vat: 16.67,
-            valid_from: Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
-            valid_to: Utc.with_ymd_and_hms(2024, 1, 16, 0, 30, 0).unwrap(),
-        };
-
-        let rates = Rates::new(vec![rate_today_2330.clone(), rate_tomorrow_0000.clone()]);
-
-        // Verify filter_for_date(today) includes only today's rates
-        let today_rates = rates.filter_for_date(today);
-        assert_eq!(today_rates.len(), 1);
-        assert_eq!(today_rates[0].value_inc_vat, 15.0);
-
-        // Verify filter_for_date(tomorrow) includes only tomorrow's rates
-        let tomorrow_rates = rates.filter_for_date(tomorrow);
-        assert_eq!(tomorrow_rates.len(), 1);
-        assert_eq!(tomorrow_rates[0].value_inc_vat, 20.0);
-    }
-
-    #[test]
-    fn test_stats_for_date_with_data() {
-        use chrono::NaiveDate;
-
-        let today = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
-
-        // Create multiple rates for the same day
+    fn for_date_respects_london_midnight() {
         let rates = Rates::new(vec![
-            Rate {
-                value_inc_vat: 10.0,
-                value_exc_vat: 8.33,
-                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 0, 30, 0).unwrap(),
-            },
-            Rate {
-                value_inc_vat: 20.0,
-                value_exc_vat: 16.67,
-                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 12, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 12, 30, 0).unwrap(),
-            },
-            Rate {
-                value_inc_vat: 15.0,
-                value_exc_vat: 12.5,
-                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 23, 30, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
-            },
+            half_hour(23, 30, 15.0),
+            rate(utc(2024, 1, 16, 0, 0), 30, 20.0),
         ]);
 
-        let stats = rates.stats_for_date(today).unwrap();
+        let today = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
+        let tomorrow = NaiveDate::from_ymd_opt(2024, 1, 16).unwrap();
+        assert_eq!(rates.for_date(today).len(), 1);
+        assert_eq!(rates.for_date(today)[0].value_inc_vat, 15.0);
+        assert_eq!(rates.for_date(tomorrow)[0].value_inc_vat, 20.0);
+    }
 
+    #[test]
+    fn for_date_uses_bst_midnight_in_summer() {
+        // 23:00 UTC on 1 June is 00:00 BST on 2 June.
+        let rates = Rates::new(vec![
+            rate(utc(2026, 6, 1, 22, 30), 30, 1.0),
+            rate(utc(2026, 6, 1, 23, 0), 30, 2.0),
+        ]);
+
+        let june_2 = NaiveDate::from_ymd_opt(2026, 6, 2).unwrap();
+        assert_eq!(rates.for_date(june_2).len(), 1);
+        assert_eq!(rates.for_date(june_2)[0].value_inc_vat, 2.0);
+    }
+
+    #[test]
+    fn stats_for_date_summarises_that_day_only() {
+        let rates = Rates::new(vec![
+            rate(utc(2024, 1, 14, 12, 0), 30, 99.0),
+            half_hour(0, 0, 10.0),
+            half_hour(12, 0, 20.0),
+            half_hour(23, 30, 15.0),
+        ]);
+
+        let stats = rates
+            .stats_for_date(NaiveDate::from_ymd_opt(2024, 1, 15).unwrap())
+            .unwrap();
         assert_eq!(stats.min, 10.0);
         assert_eq!(stats.max, 20.0);
         assert_eq!(stats.avg, 15.0);
-        assert_eq!(stats.to_string(), "10.00p - 20.00p");
-        assert_eq!(stats.rate_count, 3);
+        assert_eq!(stats.count, 3);
+        assert_eq!(stats.to_string(), "10.00p – 20.00p");
     }
 
     #[test]
-    fn test_stats_for_date_no_data() {
-        use chrono::NaiveDate;
-
-        let _yesterday = NaiveDate::from_ymd_opt(2024, 1, 14).unwrap();
-        let today = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
-
-        // Create rates for yesterday only
-        let rates = Rates::new(vec![Rate {
-            value_inc_vat: 10.0,
-            value_exc_vat: 8.33,
-            valid_from: Utc.with_ymd_and_hms(2024, 1, 14, 12, 0, 0).unwrap(),
-            valid_to: Utc.with_ymd_and_hms(2024, 1, 14, 12, 30, 0).unwrap(),
-        }]);
-
-        // stats_for_date(today) should return None
-        assert!(rates.stats_for_date(today).is_none());
-    }
-
-    #[test]
-    fn test_merged_with_replaces_matching_slots_and_preserves_rest() {
-        let older = Rates::new(vec![
-            Rate {
-                value_inc_vat: 10.0,
-                value_exc_vat: 8.33,
-                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 0, 30, 0).unwrap(),
-            },
-            Rate {
-                value_inc_vat: 20.0,
-                value_exc_vat: 16.67,
-                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 0, 30, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 1, 0, 0).unwrap(),
-            },
-        ]);
-
-        let newer = Rates::new(vec![
-            Rate {
-                value_inc_vat: 12.0,
-                value_exc_vat: 10.0,
-                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 0, 30, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 1, 0, 0).unwrap(),
-            },
-            Rate {
-                value_inc_vat: 30.0,
-                value_exc_vat: 25.0,
-                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 1, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 1, 30, 0).unwrap(),
-            },
-        ]);
-
-        let merged = older.merged_with(&newer);
-
-        assert_eq!(merged.all_values(), vec![10.0, 12.0, 30.0]);
-    }
-
-    #[test]
-    fn test_within_window_drops_out_of_range_slots() {
-        let rates = Rates::new(vec![
-            Rate {
-                value_inc_vat: 10.0,
-                value_exc_vat: 8.33,
-                valid_from: Utc.with_ymd_and_hms(2024, 1, 14, 23, 30, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            },
-            Rate {
-                value_inc_vat: 20.0,
-                value_exc_vat: 16.67,
-                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 0, 30, 0).unwrap(),
-            },
-            Rate {
-                value_inc_vat: 30.0,
-                value_exc_vat: 25.0,
-                valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 23, 30, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
-            },
-        ]);
-
-        let filtered = rates.within_window(
-            Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
+    fn stats_for_date_without_data_is_none() {
+        let rates = Rates::new(vec![rate(utc(2024, 1, 14, 12, 0), 30, 10.0)]);
+        assert!(
+            rates
+                .stats_for_date(NaiveDate::from_ymd_opt(2024, 1, 15).unwrap())
+                .is_none()
         );
-
-        assert_eq!(filtered.all_values(), vec![20.0, 30.0]);
     }
 
     #[test]
-    fn test_daily_stats_with_tomorrow() {
-        use chrono::Duration;
-
-        let today = Utc::now().date_naive();
-        let tomorrow = today + Duration::days(1);
-
-        // Create rates for today and tomorrow
+    fn cheapest_window_finds_the_lowest_average_run() {
         let rates = Rates::new(vec![
-            Rate {
-                value_inc_vat: 10.0,
-                value_exc_vat: 8.33,
-                valid_from: today.and_hms_opt(10, 0, 0).unwrap().and_utc(),
-                valid_to: today.and_hms_opt(10, 30, 0).unwrap().and_utc(),
-            },
-            Rate {
-                value_inc_vat: 15.0,
-                value_exc_vat: 12.5,
-                valid_from: tomorrow.and_hms_opt(10, 0, 0).unwrap().and_utc(),
-                valid_to: tomorrow.and_hms_opt(10, 30, 0).unwrap().and_utc(),
-            },
+            half_hour(10, 0, 30.0),
+            half_hour(10, 30, 5.0),
+            half_hour(11, 0, 6.0),
+            half_hour(11, 30, 40.0),
+            half_hour(12, 0, 1.0),
         ]);
 
-        let now = today.and_hms_opt(12, 0, 0).unwrap().and_utc();
-        let daily_stats = rates.daily_stats_at(now).unwrap();
-
-        assert_eq!(daily_stats.today.min, 10.0);
-        assert!(daily_stats.tomorrow.is_some());
-        assert_eq!(daily_stats.tomorrow.unwrap().min, 15.0);
+        let window = rates
+            .cheapest_window(utc(2024, 1, 15, 10, 0), Duration::hours(1))
+            .unwrap();
+        assert_eq!(window.start, utc(2024, 1, 15, 10, 30));
+        assert_eq!(window.end, utc(2024, 1, 15, 11, 30));
+        assert_eq!(window.average, 5.5);
     }
 
     #[test]
-    fn test_daily_stats_without_tomorrow() {
-        let today = Utc::now().date_naive();
-
-        // Create rates for today only
-        let rates = Rates::new(vec![Rate {
-            value_inc_vat: 10.0,
-            value_exc_vat: 8.33,
-            valid_from: today.and_hms_opt(10, 0, 0).unwrap().and_utc(),
-            valid_to: today.and_hms_opt(10, 30, 0).unwrap().and_utc(),
-        }]);
-
-        let now = today.and_hms_opt(12, 0, 0).unwrap().and_utc();
-        let daily_stats = rates.daily_stats_at(now).unwrap();
-
-        assert_eq!(daily_stats.today.min, 10.0);
-        assert!(daily_stats.tomorrow.is_none());
-    }
-
-    #[test]
-    fn test_next_price_spanning_midnight() {
-        use chrono::NaiveDate;
-
-        let _today = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
-
-        // Create rate valid until 23:30
-        let rate_today = Rate {
-            value_inc_vat: 10.0,
-            value_exc_vat: 8.33,
-            valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 23, 0, 0).unwrap(),
-            valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 23, 30, 0).unwrap(),
-        };
-
-        // Create next rate starting 00:00 tomorrow
-        let rate_tomorrow = Rate {
-            value_inc_vat: 20.0,
-            value_exc_vat: 16.67,
-            valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 23, 30, 0).unwrap(),
-            valid_to: Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
-        };
-
-        let rates = Rates::new(vec![rate_today, rate_tomorrow.clone()]);
-
-        // Call next_price() at 23:29
-        let time_at_23_29 = Utc.with_ymd_and_hms(2024, 1, 15, 23, 29, 0).unwrap();
-        let next = rates.next_rate(time_at_23_29).unwrap();
-
-        // Assert returns tomorrow's price
-        assert_eq!(next.value_inc_vat, 20.0);
-    }
-
-    #[test]
-    fn test_has_data_for_date() {
-        use chrono::NaiveDate;
-
-        let today = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
-        let tomorrow = NaiveDate::from_ymd_opt(2024, 1, 16).unwrap();
-
-        let rates = Rates::new(vec![Rate {
-            value_inc_vat: 10.0,
-            value_exc_vat: 8.33,
-            valid_from: Utc.with_ymd_and_hms(2024, 1, 15, 12, 0, 0).unwrap(),
-            valid_to: Utc.with_ymd_and_hms(2024, 1, 15, 12, 30, 0).unwrap(),
-        }]);
-
-        assert!(rates.stats_for_date(today).is_some());
-        assert!(rates.stats_for_date(tomorrow).is_none());
-    }
-
-    #[test]
-    fn test_series_data_formats_spring_forward_day_in_london_time() {
-        use chrono::NaiveDate;
-
-        let spring_forward_day = NaiveDate::from_ymd_opt(2026, 3, 29).unwrap();
+    fn cheapest_window_never_spans_a_gap() {
+        // 10:30 is missing, so the two cheap slots are not one hour of continuous supply.
         let rates = Rates::new(vec![
-            Rate {
-                value_inc_vat: 10.0,
-                value_exc_vat: 8.33,
-                valid_from: Utc.with_ymd_and_hms(2026, 3, 29, 0, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2026, 3, 29, 0, 30, 0).unwrap(),
-            },
-            Rate {
-                value_inc_vat: 12.0,
-                value_exc_vat: 10.0,
-                valid_from: Utc.with_ymd_and_hms(2026, 3, 29, 1, 0, 0).unwrap(),
-                valid_to: Utc.with_ymd_and_hms(2026, 3, 29, 1, 30, 0).unwrap(),
-            },
+            half_hour(10, 0, 1.0),
+            half_hour(11, 0, 1.0),
+            half_hour(11, 30, 50.0),
         ]);
 
-        let (x_data, y_data) = rates.series_data_for_date(spring_forward_day).unwrap();
+        let window = rates
+            .cheapest_window(utc(2024, 1, 15, 10, 0), Duration::hours(1))
+            .unwrap();
+        assert_eq!(window.start, utc(2024, 1, 15, 11, 0));
+    }
 
-        assert_eq!(y_data, vec![10.0, 12.0]);
-        assert!(x_data.iter().any(|label| label.contains("00:00")));
-        assert!(x_data.iter().any(|label| label.contains("02:00")));
-        assert!(!x_data.iter().any(|label| label.contains("01:00")));
+    #[test]
+    fn cheapest_window_needs_enough_published_rates() {
+        let rates = Rates::new(vec![half_hour(10, 0, 1.0), half_hour(10, 30, 1.0)]);
+        assert!(
+            rates
+                .cheapest_window(utc(2024, 1, 15, 10, 0), Duration::hours(4))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn cheapest_window_prefers_the_earliest_tie() {
+        let rates = Rates::new(vec![half_hour(10, 0, 2.0), half_hour(10, 30, 2.0)]);
+        let window = rates
+            .cheapest_window(utc(2024, 1, 15, 10, 0), Duration::minutes(30))
+            .unwrap();
+        assert_eq!(window.start, utc(2024, 1, 15, 10, 0));
+    }
+
+    #[test]
+    fn cheapest_between_includes_start_and_excludes_end() {
+        let rates = Rates::new(vec![
+            half_hour(10, 0, 9.0),
+            half_hour(10, 30, 5.0),
+            half_hour(11, 0, 1.0),
+        ]);
+
+        let cheapest = rates
+            .cheapest_between(utc(2024, 1, 15, 10, 0), utc(2024, 1, 15, 11, 0))
+            .unwrap();
+        assert_eq!(cheapest.value_inc_vat, 5.0);
+    }
+
+    #[test]
+    fn deserializing_restores_sort_order() {
+        let json =
+            serde_json::to_string(&vec![half_hour(11, 0, 2.0), half_hour(10, 0, 1.0)]).unwrap();
+        let rates: Rates = serde_json::from_str(&json).unwrap();
+        assert_eq!(rates.values().collect::<Vec<_>>(), vec![1.0, 2.0]);
+    }
+
+    #[test]
+    fn tracker_style_daily_rates() {
+        // Tracker rates run London midnight to midnight (23:00 UTC in summer).
+        let rates = Rates::new(vec![
+            rate(utc(2026, 6, 1, 23, 0), 24 * 60, 20.67),
+            rate(utc(2026, 6, 2, 23, 0), 24 * 60, 22.35),
+        ]);
+        let now = utc(2026, 6, 2, 23, 30); // 00:30 BST on 3 June
+
+        assert_eq!(rates.rate_at(now).unwrap().value_inc_vat, 22.35);
+        let june_3 = NaiveDate::from_ymd_opt(2026, 6, 3).unwrap();
+        assert_eq!(rates.for_date(june_3)[0].value_inc_vat, 22.35);
     }
 }
