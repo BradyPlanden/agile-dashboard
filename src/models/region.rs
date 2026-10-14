@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 
 /// UK electricity distribution regions used by Octopus Energy.
 /// Each region corresponds to a Distribution Network Operator (DNO) area.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
 pub enum Region {
     A,
     B,
