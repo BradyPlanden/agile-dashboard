@@ -1,17 +1,18 @@
 use crate::models::rates::Rates;
 use crate::utils::time::london_date;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use std::rc::Rc;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct TrackerDisplayProps {
     pub rates: Rc<Rates>,
+    pub now: DateTime<Utc>,
 }
 
 #[function_component(TrackerDisplay)]
 pub fn tracker_display(props: &TrackerDisplayProps) -> Html {
-    let now = Utc::now();
+    let now = props.now;
     let tomorrow = london_date(now)
         .succ_opt()
         .expect("tomorrow is a valid date");

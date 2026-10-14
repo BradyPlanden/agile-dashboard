@@ -1,4 +1,6 @@
-use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, NaiveTime, Utc, Weekday};
+use chrono::{
+    DateTime, Datelike, Duration, DurationRound, FixedOffset, NaiveDate, NaiveTime, Utc, Weekday,
+};
 
 const BST_OFFSET_SECONDS: i32 = 60 * 60;
 
@@ -10,8 +12,9 @@ pub fn london_date(dt: DateTime<Utc>) -> NaiveDate {
     london_time(dt).date_naive()
 }
 
-pub fn london_today() -> NaiveDate {
-    london_date(Utc::now())
+/// Start of the half-hour pricing slot containing `dt`.
+pub fn slot_start(dt: DateTime<Utc>) -> DateTime<Utc> {
+    dt.duration_trunc(Duration::minutes(30)).unwrap_or(dt)
 }
 
 pub fn london_midnight_utc(date: NaiveDate) -> DateTime<Utc> {
@@ -82,6 +85,16 @@ mod tests {
             london_time(after).format("%Y-%m-%d %H:%M").to_string(),
             "2026-03-29 02:30"
         );
+    }
+
+    #[test]
+    fn slot_start_truncates_to_the_half_hour() {
+        let dt = Utc.with_ymd_and_hms(2026, 3, 29, 14, 47, 12).unwrap();
+        assert_eq!(
+            slot_start(dt),
+            Utc.with_ymd_and_hms(2026, 3, 29, 14, 30, 0).unwrap()
+        );
+        assert_eq!(slot_start(slot_start(dt)), slot_start(dt));
     }
 
     #[test]

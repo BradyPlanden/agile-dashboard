@@ -14,13 +14,14 @@ use web_sys::HtmlElement;
 use yew::prelude::*;
 
 use crate::models::rates::Rates;
-use crate::utils::time::{london_midnight_utc, london_time, london_today};
+use crate::utils::time::{london_date, london_midnight_utc, london_time};
 
 const CHART_ID: &str = "energy-chart";
 
 #[derive(Properties, PartialEq)]
 pub struct ChartProps {
     pub rates: Rc<Rates>,
+    pub now: chrono::DateTime<chrono::Utc>,
     pub dark_mode: bool,
 }
 
@@ -28,7 +29,7 @@ pub struct ChartProps {
 pub fn chart(props: &ChartProps) -> Html {
     let container_ref = use_node_ref();
     let chart_instance = use_mut_ref(|| None::<Echarts>);
-    let series_data = series_data(&props.rates, london_today());
+    let series_data = series_data(&props.rates, london_date(props.now));
 
     {
         let container_ref = container_ref.clone();

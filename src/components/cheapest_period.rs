@@ -1,13 +1,14 @@
-use chrono::{Duration, DurationRound, Utc};
+use chrono::{DateTime, Duration, Utc};
 use std::rc::Rc;
 use yew::prelude::*;
 
 use crate::models::rates::Rates;
-use crate::utils::time::london_time;
+use crate::utils::time::{london_time, slot_start};
 
 #[derive(Properties, PartialEq)]
 pub struct CheapestPeriodProps {
     pub rates: Option<Rc<Rates>>,
+    pub now: DateTime<Utc>,
 }
 
 /// Displays the cheapest electricity period in the next 3 hours.
@@ -17,10 +18,8 @@ pub fn cheapest_period(props: &CheapestPeriodProps) -> Html {
         return html! {};
     };
 
-    let now = Utc::now();
-    let window_start = now
-        .duration_trunc(Duration::minutes(30))
-        .expect("30 minutes is a valid truncation duration");
+    let now = props.now;
+    let window_start = slot_start(now);
     let three_hours_later = now + Duration::hours(3);
 
     let cheapest_time = rates

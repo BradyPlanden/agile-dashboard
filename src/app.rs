@@ -7,6 +7,7 @@ use crate::components::tracker_display::TrackerDisplay;
 use crate::components::{CarbonDisplay, CheapestPeriod, RegionSelector, ThemeToggle, TraceBanner};
 use crate::hooks::use_carbon::use_carbon_intensity;
 use crate::hooks::use_historical_rates::use_historical_rates;
+use crate::hooks::use_now::use_now;
 use crate::hooks::use_rates::use_rates;
 use crate::hooks::use_region::use_region;
 use crate::hooks::use_theme::{Theme, use_theme};
@@ -16,6 +17,7 @@ use crate::hooks::use_tracker::use_tracker_rates;
 pub fn app() -> Html {
     let region_handle = use_region();
     let region = region_handle.region;
+    let now = use_now();
 
     let state = use_rates(region).state;
     let historical_state = use_historical_rates(region).state;
@@ -33,7 +35,7 @@ pub fn app() -> Html {
     html! {
         <div class="app-container">
             <header class="app-header">
-                <CheapestPeriod rates={state.data().cloned()} />
+                <CheapestPeriod rates={state.data().cloned()} {now} />
                 <h1>{"Octopus Agile Dashboard"}</h1>
                 <RegionSelector region={region} on_change={region_handle.set_region.clone()} />
                 <ThemeToggle
@@ -60,7 +62,7 @@ pub fn app() -> Html {
                 if let Some(rates) = state.data() {
                     <section class="data-section">
                         <h2>{"Agile Electricity"}</h2>
-                        <Summary rates={rates.clone()} />
+                        <Summary rates={rates.clone()} {now} />
                     </section>
 
                     {
@@ -68,7 +70,7 @@ pub fn app() -> Html {
                             (Some(tracker_rates), _) => html! {
                                 <section class="tracker-section">
                                     <h2>{"Tracker Electricity"}</h2>
-                                    <TrackerDisplay rates={tracker_rates.clone()} />
+                                    <TrackerDisplay rates={tracker_rates.clone()} {now} />
                                 </section>
                             },
                             (None, Some(err)) => html! {
@@ -89,7 +91,7 @@ pub fn app() -> Html {
                     // Chart
                     <section class="chart-section">
                         <h2>{"Energy Price Distribution"}</h2>
-                        <Chart rates={rates.clone()} dark_mode={theme_handle.effective_theme == Theme::Dark} />
+                        <Chart rates={rates.clone()} {now} dark_mode={theme_handle.effective_theme == Theme::Dark} />
                     </section>
 
                     // Carbon tracking

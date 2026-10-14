@@ -1,18 +1,19 @@
 use crate::components::DaySummary;
 use crate::models::rates::Rates;
 use crate::utils::time::london_date;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use std::rc::Rc;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct SummaryProps {
     pub rates: Rc<Rates>,
+    pub now: DateTime<Utc>,
 }
 
 #[function_component(Summary)]
 pub fn summary(props: &SummaryProps) -> Html {
-    let now = Utc::now();
+    let now = props.now;
     let today = london_date(now);
     let tomorrow = today.succ_opt().expect("tomorrow is a valid date");
 
